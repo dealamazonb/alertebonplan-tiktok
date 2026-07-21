@@ -1,0 +1,24 @@
+import React from 'react';
+import {Composition} from 'remotion';
+import {DealVideo} from './DealVideo';
+
+export const RemotionRoot = () => {
+  return (
+    <Composition
+      id="DealVideo"
+      component={DealVideo}
+      durationInFrames={300}
+      fps={30}
+      width={1080}
+      height={1920}
+      defaultProps={{
+        title: 'Bon plan Amazon',
+        currentPrice: '79,99 €',
+        originalPrice: '129,99 €',
+        discount: '-38 %',
+        imageUrl: '',
+        affiliateUrl: '',
+      }}
+    />
+  );
+};
