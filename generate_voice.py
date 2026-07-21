@@ -25,23 +25,27 @@ def build_voice_text(data: dict) -> str:
     if reduction >= 50:
         intro = "Alerte bon plan. Le prix vient de s'effondrer."
     elif reduction >= 30:
-        intro = "Alerte bon plan. Grosse baisse de prix sur Amazon."
+        intro = "Alerte bon plan. Grosse baisse de prix."
     elif current_price and original_price:
         intro = "Alerte bon plan. Amazon baisse enfin le prix."
     else:
-        intro = "Alerte bon plan. Cette promotion risque de partir vite."
+        intro = "Alerte bon plan. Une promotion à ne pas manquer."
 
-    parts = [intro, title + "."]
+    # Le titre est volontairement raccourci pour éviter une voix trop longue.
+    short_title = title[:105].rsplit(" ", 1)[0] if len(title) > 105 else title
+
+    parts = [intro, short_title + "."]
 
     if current_price:
-        parts.append(f"Il est actuellement à {current_price}.")
+        parts.append(f"Prix actuel : {current_price}.")
     if original_price:
         parts.append(f"Au lieu de {original_price}.")
     if discount:
-        parts.append(f"Soit une réduction de {discount}.")
+        parts.append(f"Réduction : {discount}.")
 
-    parts.append("Le lien du produit est dans la description.")
+    parts.append("Lien dans la description.")
     return " ".join(parts)
+
 
 
 async def main() -> None:
@@ -56,7 +60,7 @@ async def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
 
     voice = os.getenv("TTS_VOICE", "fr-FR-HenriNeural")
-    rate = os.getenv("TTS_RATE", "+8%")
+    rate = os.getenv("TTS_RATE", "+18%")
     pitch = os.getenv("TTS_PITCH", "-2Hz")
 
     communicate = edge_tts.Communicate(
