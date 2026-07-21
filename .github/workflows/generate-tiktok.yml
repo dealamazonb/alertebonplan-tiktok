@@ -100,7 +100,7 @@ jobs:
             video_tiktok.mp4 \
             --props=props.json \
             --codec=h264 \
-            --crf=18
+            --crf=16
 
       - name: Vérifier la vidéo
         run: |
