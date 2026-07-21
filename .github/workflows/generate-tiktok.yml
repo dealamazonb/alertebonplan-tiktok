@@ -2,29 +2,92 @@ name: Generate TikTok Video
 
 on:
   workflow_dispatch:
+    inputs:
+      title:
+        description: "Nom du produit"
+        required: true
+        default: "Samsung SSD 990 PRO 2 To"
+
+      current_price:
+        description: "Prix actuel"
+        required: false
+        default: "129,99 €"
+
+      original_price:
+        description: "Ancien prix"
+        required: false
+        default: "199,99 €"
+
+      discount:
+        description: "Réduction"
+        required: false
+        default: "-35 %"
+
+      image_url:
+        description: "URL de l'image produit"
+        required: false
+        default: "https://m.media-amazon.com/images/I/61jLiCovxVL._AC_SL1500_.jpg"
+
+      affiliate_url:
+        description: "Lien affilié Amazon"
+        required: false
+        default: "https://www.amazon.fr/"
+
+  repository_dispatch:
+    types:
+      - generate_tiktok
 
 jobs:
-  build:
+  generate:
     runs-on: ubuntu-latest
 
+    env:
+      DEAL_TITLE: ${{ github.event.client_payload.title || inputs.title }}
+      CURRENT_PRICE: ${{ github.event.client_payload.currentPrice || inputs.current_price }}
+      ORIGINAL_PRICE: ${{ github.event.client_payload.originalPrice || inputs.original_price }}
+      DISCOUNT: ${{ github.event.client_payload.discount || inputs.discount }}
+      IMAGE_URL: ${{ github.event.client_payload.imageUrl || inputs.image_url }}
+      AFFILIATE_URL: ${{ github.event.client_payload.affiliateUrl || inputs.affiliate_url }}
+
     steps:
-      - name: Checkout repository
+      - name: Télécharger le dépôt
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Installer Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install FFmpeg
+      - name: Installer FFmpeg et les polices
         run: |
-          sudo apt update
-          sudo apt install ffmpeg -y
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
 
-      - name: Install dependencies
+      - name: Installer les dépendances
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Generate video
+      - name: Générer la vidéo
         run: |
           python generate_video.py
+
+      - name: Vérifier le fichier
+        run: |
+          ls -lh video_tiktok.mp4
+
+      - name: Envoyer la vidéo sur Telegram
+        run: |
+          curl --fail \
+            --request POST \
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendVideo" \
+            --form "chat_id=${{ secrets.TIKTOK_CHANNEL_ID }}" \
+            --form "video=@video_tiktok.mp4" \
+            --form "supports_streaming=true" \
+            --form-string "caption=🎬 Vidéo TikTok prête
+
+          🛍️ ${DEAL_TITLE}
+          💰 ${CURRENT_PRICE}
+          🔥 ${DISCOUNT}
+
+          👉 ${AFFILIATE_URL}"
