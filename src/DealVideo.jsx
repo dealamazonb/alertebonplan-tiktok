@@ -162,7 +162,9 @@ export const DealVideo = ({title,currentPrice,originalPrice,discount,imageUrl}) 
     </Sequence>
 
     <Sequence from={584} durationInFrames={216}>
-      <Final theme={theme} />
-    </Sequence>
-  </AbsoluteFill>
-);
+  <Final theme={theme} />
+</Sequence>
+
+</AbsoluteFill>
+  );
+};
