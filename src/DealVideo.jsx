@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  AbsoluteFill, Img, Sequence, interpolate, spring,
-  useCurrentFrame, useVideoConfig
+  AbsoluteFill, Html5Audio, Img, Sequence, interpolate, spring,
+  staticFile, useCurrentFrame, useVideoConfig
 } from 'remotion';
 
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'};
@@ -128,6 +128,7 @@ export const DealVideo = ({title,currentPrice,originalPrice,discount,imageUrl}) 
   const theme=selectTheme(title,discount);
   const hook=hookFor({title,discount,currentPrice,originalPrice});
   return <AbsoluteFill>
+    <Html5Audio src={staticFile('voice.mp3')} volume={0.96} />
     <Background theme={theme}/>
     <Sequence from={0} durationInFrames={50}><Intro theme={theme} hook={hook} discount={discount}/></Sequence>
     <Sequence from={44} durationInFrames={132}><Product theme={theme} title={title} imageUrl={imageUrl} discount={discount}/></Sequence>
