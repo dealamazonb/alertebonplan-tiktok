@@ -29,7 +29,7 @@ on:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     env:
       DEAL_TITLE: ${{ github.event.client_payload.title || inputs.title }}
@@ -39,7 +39,7 @@ jobs:
       IMAGE_URL: ${{ github.event.client_payload.imageUrl || inputs.image_url }}
       AFFILIATE_URL: ${{ github.event.client_payload.affiliateUrl || inputs.affiliate_url }}
       TTS_VOICE: fr-FR-HenriNeural
-      TTS_RATE: "+12%"
+      TTS_RATE: "+18%"
       TTS_PITCH: "-2Hz"
 
     steps:
@@ -92,6 +92,9 @@ jobs:
       - name: Générer la voix française
         run: python generate_voice.py
 
+      - name: Générer la légende TikTok
+        run: python generate_caption.py
+
       - name: Générer la vidéo avec Remotion
         run: |
           npx remotion render \
@@ -102,34 +105,32 @@ jobs:
             --codec=h264 \
             --crf=16
 
-      - name: Vérifier la vidéo
+      - name: Vérifier les fichiers
         run: |
           test -s video_tiktok.mp4
           test -s public/voice.mp3
-          ls -lh video_tiktok.mp4 public/voice.mp3
+          test -s tiktok_caption.txt
+          ls -lh video_tiktok.mp4 public/voice.mp3 tiktok_caption.txt
 
       - name: Envoyer la vidéo dans Telegram
         shell: bash
         run: |
-          CAPTION=$(cat <<EOF
-          🎬 Vidéo TikTok prête
-
-          🛍️ ${DEAL_TITLE}
-
-          💰 ${CURRENT_PRICE}
-          ${ORIGINAL_PRICE:+❌ Ancien prix : ${ORIGINAL_PRICE}}
-          ${DISCOUNT:+🔥 Réduction : ${DISCOUNT}}
-
-          👉 ${AFFILIATE_URL}
-
-          #BonPlan #Amazon #Promo #AlerteBonPlan
-          EOF
-          )
-
           curl --fail-with-body \
             --request POST \
             "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendVideo" \
             --form "chat_id=${{ secrets.TIKTOK_CHANNEL_ID }}" \
             --form "video=@video_tiktok.mp4" \
             --form "supports_streaming=true" \
-            --form-string "caption=${CAPTION}"
+            --form-string "caption=🎬 Vidéo TikTok prête — la légende arrive dans le message suivant."
+
+      - name: Envoyer la légende prête à copier
+        shell: bash
+        run: |
+          CAPTION="$(cat tiktok_caption.txt)"
+
+          curl --fail-with-body \
+            --request POST \
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            --form "chat_id=${{ secrets.TIKTOK_CHANNEL_ID }}" \
+            --form "disable_web_page_preview=true" \
+            --form-string "text=${CAPTION}"
