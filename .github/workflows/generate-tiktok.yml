@@ -39,7 +39,7 @@ jobs:
       IMAGE_URL: ${{ github.event.client_payload.imageUrl || inputs.image_url }}
       AFFILIATE_URL: ${{ github.event.client_payload.affiliateUrl || inputs.affiliate_url }}
       TTS_VOICE: fr-FR-HenriNeural
-      TTS_RATE: "+8%"
+      TTS_RATE: "+12%"
       TTS_PITCH: "-2Hz"
 
     steps:
