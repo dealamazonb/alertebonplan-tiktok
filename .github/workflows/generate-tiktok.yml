@@ -51,11 +51,10 @@ jobs:
       - name: Installer Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+        node-version: "24"
 
       - name: Installer les dépendances
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: Créer les données du deal
         shell: bash
