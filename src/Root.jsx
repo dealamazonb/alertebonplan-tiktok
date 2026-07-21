@@ -7,15 +7,15 @@ export const RemotionRoot = () => {
     <Composition
       id="DealVideo"
       component={DealVideo}
-      durationInFrames={300}
-      fps={30}
+      durationInFrames={400}
+      fps={60}
       width={1080}
       height={1920}
       defaultProps={{
         title: 'Bon plan Amazon',
-        currentPrice: '79,99 €',
-        originalPrice: '129,99 €',
-        discount: '-38 %',
+        currentPrice: '',
+        originalPrice: '',
+        discount: '',
         imageUrl: '',
         affiliateUrl: '',
       }}
