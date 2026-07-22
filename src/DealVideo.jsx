@@ -14,6 +14,12 @@ const themes = {
 
 const clean = (v='') => String(v).replace(/\s+/g,' ').trim();
 
+const safeImageSrc = (value='') => {
+  const src = clean(value);
+  if (!src) return staticFile('product-image.svg');
+  return /^https?:\/\//i.test(src) ? src : staticFile(src);
+};
+
 const pct = (v='') => {
   const m = String(v).match(/(\d{1,3})/);
   return m ? Number(m[1]) : 0;
@@ -86,7 +92,7 @@ const Product = ({theme,title,imageUrl,discount}) => {
     <Brand theme={theme}/>
     <div style={{position:'absolute',top:200,left:72,right:72,height:1050,borderRadius:66,overflow:'hidden',background:'linear-gradient(145deg,#fff,#EAF0FA)',boxShadow:'0 40px 120px rgba(0,0,0,.52)',opacity:e,transform:`translateY(${interpolate(e,[0,1],[220,0])}px) scale(${e})`}}>
       <div style={{position:'absolute',inset:0,background:`radial-gradient(circle at 50% 45%,#fff,${c.a}12)`}}/>
-      <Img src={imageUrl} style={{position:'absolute',width:'84%',height:'78%',left:'8%',top:'10%',objectFit:'contain',transform:`scale(${zoom})`,filter:'drop-shadow(0 35px 38px rgba(8,15,35,.28))'}}/>
+      <Img src={safeImageSrc(imageUrl)} style={{position:'absolute',width:'84%',height:'78%',left:'8%',top:'10%',objectFit:'contain',transform:`scale(${zoom})`,filter:'drop-shadow(0 35px 38px rgba(8,15,35,.28))'}}/>
       {discount && <div style={{position:'absolute',right:30,top:28,padding:'18px 30px',borderRadius:999,color:'#fff',fontWeight:1000,fontSize:46,background:`linear-gradient(135deg,${c.a},${c.b})`}}>{discount}</div>}
     </div>
     <div style={{position:'absolute',left:76,right:76,top:1320,color:'#fff',fontWeight:1000,fontSize:55,lineHeight:1.12,textAlign:'center',opacity:te,transform:`translateY(${interpolate(te,[0,1],[75,0])}px)`}}>{shortTitle(title)}</div>
@@ -127,23 +133,16 @@ const Final = ({theme}) => {
 export const DealVideo = ({title,currentPrice,originalPrice,discount,imageUrl}) => {
   const theme=selectTheme(title,discount);
   const hook=hookFor({title,discount,currentPrice,originalPrice});
- return (
-  <AbsoluteFill>
-    <Sequence from={16}>
+  return <AbsoluteFill>
+    <Sequence from={8}>
       <Html5Audio src={staticFile('voice.mp3')} volume={0.96} />
     </Sequence>
-
-    <Background theme={theme} />
-
-    <Sequence from={0} durationInFrames={128}>
-      <Intro
-        theme={theme}
-        hook={hook}
-        discount={discount}
-      />
+    <Background theme={theme}/>
+    <Sequence from={0} durationInFrames={64}>
+      <Intro theme={theme} hook={hook} discount={discount}/>
     </Sequence>
 
-    <Sequence from={108} durationInFrames={300}>
+    <Sequence from={54} durationInFrames={150}>
       <Product
         theme={theme}
         title={title}
@@ -152,7 +151,7 @@ export const DealVideo = ({title,currentPrice,originalPrice,discount,imageUrl}) 
       />
     </Sequence>
 
-    <Sequence from={388} durationInFrames={212}>
+    <Sequence from={194} durationInFrames={106}>
       <Price
         theme={theme}
         currentPrice={currentPrice}
@@ -161,10 +160,8 @@ export const DealVideo = ({title,currentPrice,originalPrice,discount,imageUrl}) 
       />
     </Sequence>
 
-    <Sequence from={584} durationInFrames={216}>
-  <Final theme={theme} />
-</Sequence>
-
-</AbsoluteFill>
-  );
+    <Sequence from={292} durationInFrames={108}>
+      <Final theme={theme}/>
+    </Sequence>
+  </AbsoluteFill>;
 };
