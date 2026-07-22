@@ -196,8 +196,7 @@ jobs:
             'export const FINAL_FROM = PRICE_FROM + PRICE_FRAMES;',
             'export const TOTAL_FRAMES = FINAL_FROM + FINAL_FRAMES;',
             '',
-          ].join('
-');
+          ].join('\n');
 
           fs.writeFileSync('src/timings.js', content);
 
