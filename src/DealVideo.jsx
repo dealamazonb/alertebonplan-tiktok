@@ -3,6 +3,12 @@ import {
   AbsoluteFill, Html5Audio, Img, Sequence, interpolate, spring,
   staticFile, useCurrentFrame, useVideoConfig
 } from 'remotion';
+import {
+  INTRO_FROM, INTRO_FRAMES,
+  PRODUCT_FROM, PRODUCT_FRAMES,
+  PRICE_FROM, PRICE_FRAMES,
+  FINAL_FROM, FINAL_FRAMES,
+} from './timings';
 
 const clamp = {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'};
 
@@ -130,28 +136,31 @@ const Final = ({theme}) => {
   </AbsoluteFill>;
 };
 
-export const DealVideo = ({title,currentPrice,originalPrice,discount,imageUrl}) => {
+export const DealVideo = ({title,shortTitle,currentPrice,originalPrice,discount,imageUrl}) => {
+  const displayTitle = shortTitle || clean(title);
   const theme=selectTheme(title,discount);
   const hook=hookFor({title,discount,currentPrice,originalPrice});
+
   return <AbsoluteFill>
-    <Sequence from={8}>
-      <Html5Audio src={staticFile('voice.mp3')} volume={0.96} />
-    </Sequence>
     <Background theme={theme}/>
-    <Sequence from={0} durationInFrames={64}>
+
+    <Sequence from={INTRO_FROM} durationInFrames={INTRO_FRAMES}>
+      <Html5Audio src={staticFile('voice_intro.mp3')} volume={0.96}/>
       <Intro theme={theme} hook={hook} discount={discount}/>
     </Sequence>
 
-    <Sequence from={54} durationInFrames={150}>
+    <Sequence from={PRODUCT_FROM} durationInFrames={PRODUCT_FRAMES}>
+      <Html5Audio src={staticFile('voice_product.mp3')} volume={0.96}/>
       <Product
         theme={theme}
-        title={title}
+        title={displayTitle}
         imageUrl={imageUrl}
         discount={discount}
       />
     </Sequence>
 
-    <Sequence from={194} durationInFrames={106}>
+    <Sequence from={PRICE_FROM} durationInFrames={PRICE_FRAMES}>
+      <Html5Audio src={staticFile('voice_price.mp3')} volume={0.96}/>
       <Price
         theme={theme}
         currentPrice={currentPrice}
@@ -160,7 +169,8 @@ export const DealVideo = ({title,currentPrice,originalPrice,discount,imageUrl}) 
       />
     </Sequence>
 
-    <Sequence from={292} durationInFrames={108}>
+    <Sequence from={FINAL_FROM} durationInFrames={FINAL_FRAMES}>
+      <Html5Audio src={staticFile('voice_final.mp3')} volume={0.96}/>
       <Final theme={theme}/>
     </Sequence>
   </AbsoluteFill>;
