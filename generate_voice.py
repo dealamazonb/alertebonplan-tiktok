@@ -1,16 +1,17 @@
+import hashlib
 import json
-import os
 import re
 from pathlib import Path
 
-import edge_tts
+
+TELEGRAM_URL = "https://t.me/AlerteBonPlan"
 
 
-def clean(value: str) -> str:
+def clean(value=""):
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
-def clean_product_title(value: str, max_length: int = 62) -> str:
+def clean_product_title(value, max_length=80):
     title = clean(value)
 
     suffix_patterns = [
@@ -29,7 +30,6 @@ def clean_product_title(value: str, max_length: int = 62) -> str:
     for pattern in suffix_patterns:
         title = re.sub(pattern, "", title, flags=re.IGNORECASE).strip()
 
-    # Retire les détails après des séparateurs lorsqu'ils sont trop longs.
     if len(title) > max_length:
         for separator in (" - ", " – ", " — ", ", avec ", ", pour ", " | "):
             head = title.split(separator, 1)[0].strip()
@@ -39,76 +39,183 @@ def clean_product_title(value: str, max_length: int = 62) -> str:
 
     if len(title) > max_length:
         shortened = title[:max_length].rsplit(" ", 1)[0].strip()
-        title = (shortened or title[:max_length]).rstrip(" ,;:-")
+        title = (shortened or title[:max_length]).rstrip(" ,;:-") + "…"
 
-    return title or "ce bon plan Amazon"
-
-
-def percent(value: str) -> int:
-    match = re.search(r"(\d{1,3})", str(value or ""))
-    return int(match.group(1)) if match else 0
+    return title or "Bon plan Amazon"
 
 
-def build_voice_text(data: dict) -> str:
-    title = clean_product_title(data.get("title"), max_length=62)
-    current_price = clean(data.get("currentPrice"))
-    original_price = clean(data.get("originalPrice"))
+def number_from_text(value=""):
+    match = re.search(r"(\d+(?:[.,]\d+)?)", str(value or "").replace(" ", ""))
+    if not match:
+        return None
+    try:
+        return float(match.group(1).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def euro(value):
+    if value is None:
+        return ""
+    rounded = round(value, 2)
+    if rounded.is_integer():
+        return f"{int(rounded)} €"
+    return f"{rounded:.2f}".replace(".", ",") + " €"
+
+
+def category_hashtags(title):
+    text = clean(title).lower()
+
+    groups = {
+        "tech": {
+            "words": [
+                "ssd", "nvme", "processeur", "ryzen", "intel", "carte graphique",
+                "gpu", "ram", "mémoire", "pc", "gaming", "clavier", "souris",
+                "écran", "monitor", "casque", "écouteur", "chargeur", "webcam"
+            ],
+            "tags": ["#tech", "#gaming", "#pcgaming", "#setup", "#informatique"],
+        },
+        "smartphone": {
+            "words": [
+                "iphone", "samsung", "galaxy", "smartphone", "téléphone",
+                "pixel", "xiaomi", "oneplus", "airpods", "apple"
+            ],
+            "tags": ["#smartphone", "#mobile", "#hightech", "#tech", "#geek"],
+        },
+        "maison": {
+            "words": [
+                "aspirateur", "robot", "cafetière", "machine à café", "airfryer",
+                "friteuse", "micro-ondes", "four", "matelas", "canapé", "maison",
+                "cuisine", "nettoyeur"
+            ],
+            "tags": ["#maison", "#cuisine", "#astuce", "#shopping", "#quotidien"],
+        },
+        "beaute": {
+            "words": [
+                "parfum", "maquillage", "beauté", "soin", "shampoing",
+                "rasoir", "coiffure", "sèche-cheveux"
+            ],
+            "tags": ["#beaute", "#parfum", "#soin", "#shopping", "#bonplan"],
+        },
+        "jeux": {
+            "words": [
+                "lego", "jouet", "playmobil", "nintendo", "playstation",
+                "ps5", "xbox", "console", "jeu vidéo"
+            ],
+            "tags": ["#jeuxvideo", "#gaming", "#console", "#geek", "#cadeau"],
+        },
+        "sport": {
+            "words": [
+                "musculation", "fitness", "sport", "vélo", "running",
+                "tapis de course", "haltère", "basket"
+            ],
+            "tags": ["#sport", "#fitness", "#training", "#bonplan", "#shopping"],
+        },
+    }
+
+    for group in groups.values():
+        if any(word in text for word in group["words"]):
+            return group["tags"]
+
+    return ["#shopping", "#bonsplans", "#deal", "#promo", "#astuce"]
+
+
+def select_hook(data):
+    title = clean_product_title(data.get("title"), max_length=80)
     discount = clean(data.get("discount"))
-    reduction = percent(discount)
+    current = clean(data.get("currentPrice"))
+    original = clean(data.get("originalPrice"))
+
+    reduction = number_from_text(discount) or 0
+    seed = hashlib.sha256((title + current + original + discount).encode("utf-8")).digest()[0]
 
     if reduction >= 50:
-        intro = "Alerte bon plan. Le prix vient de s'effondrer."
+        hooks = [
+            "😱 Le prix vient de s’effondrer sur Amazon !",
+            "🔥 Plus de 50 % de réduction sur ce bon plan !",
+            "🚨 Cette baisse de prix est complètement folle !",
+        ]
     elif reduction >= 30:
-        intro = "Alerte bon plan. Grosse baisse de prix."
-    elif current_price and original_price:
-        intro = "Alerte bon plan. Amazon baisse enfin le prix."
+        hooks = [
+            "🔥 Amazon casse encore le prix !",
+            "💥 Grosse baisse de prix à saisir rapidement !",
+            "🚨 Ce bon plan risque de ne pas durer !",
+        ]
     else:
-        intro = "Alerte bon plan. Une promotion à ne pas manquer."
-    short_title = title
+        hooks = [
+            "🔥 Nouveau bon plan repéré sur Amazon !",
+            "👀 Cette promotion mérite clairement le détour !",
+            "💸 Un bon prix à vérifier avant qu’il ne remonte !",
+        ]
 
-    parts = [intro, short_title + "."]
+    return hooks[seed % len(hooks)]
 
-    if current_price:
-        parts.append(f"Prix actuel : {current_price}.")
-    if original_price:
-        parts.append(f"Au lieu de {original_price}.")
+
+def build_caption(data):
+    title = clean_product_title(data.get("title"), max_length=80)
+    current = clean(data.get("currentPrice"))
+    original = clean(data.get("originalPrice"))
+    discount = clean(data.get("discount"))
+    affiliate_url = clean(data.get("affiliateUrl"))
+
+    current_num = number_from_text(current)
+    original_num = number_from_text(original)
+
+    lines = [
+        select_hook(data),
+        "",
+        f"🛍️ {title}",
+    ]
+
+    if current and original:
+        lines.append(f"💰 {current} au lieu de {original}")
+    elif current:
+        lines.append(f"💰 Prix : {current}")
+    elif original:
+        lines.append(f"💰 Ancien prix indiqué : {original}")
+
+    if current_num is not None and original_num is not None and original_num > current_num:
+        saving = original_num - current_num
+        lines.append(f"✅ Économie estimée : {euro(saving)}")
+
     if discount:
-        parts.append(f"Réduction : {discount}.")
+        lines.append(f"🔥 Réduction : {discount}")
 
-    parts.append("Lien dans la description.")
-    return " ".join(parts)
+    lines.extend([
+        "",
+        f"👉 Voir l’offre : {affiliate_url}",
+        "ℹ️ Lien affilié : je peux percevoir une commission sans coût supplémentaire pour toi.",
+        "",
+        "📲 Rejoins AlerteBonPlan pour recevoir les prochaines promotions :",
+        TELEGRAM_URL,
+        "",
+    ])
+
+    base_tags = ["#amazon", "#bonplan", "#promotion", "#bonsplans", "#amazonfr"]
+    dynamic_tags = category_hashtags(title)
+    reach_tags = ["#pourtoi", "#fyp", "#tiktokfr"]
+
+    tags = []
+    for tag in base_tags + dynamic_tags + reach_tags:
+        if tag not in tags:
+            tags.append(tag)
+
+    lines.append(" ".join(tags[:15]))
+    return "\n".join(lines).strip()
 
 
-
-async def main() -> None:
-    props_path = Path("props.json")
-    if not props_path.exists():
+def main():
+    props = Path("props.json")
+    if not props.exists():
         raise FileNotFoundError("props.json est introuvable.")
 
-    data = json.loads(props_path.read_text(encoding="utf-8"))
-    text = build_voice_text(data)
+    data = json.loads(props.read_text(encoding="utf-8"))
+    caption = build_caption(data)
 
-    output = Path("public/voice.mp3")
-    output.parent.mkdir(parents=True, exist_ok=True)
-
-    voice = os.getenv("TTS_VOICE", "fr-FR-HenriNeural")
-    rate = os.getenv("TTS_RATE", "-5%")
-    pitch = os.getenv("TTS_PITCH", "-2Hz")
-
-    communicate = edge_tts.Communicate(
-        text=text,
-        voice=voice,
-        rate=rate,
-        pitch=pitch,
-        volume="+0%",
-    )
-    await communicate.save(str(output))
-
-    print("Texte voix :", text)
-    print("Voix :", voice)
-    print("Fichier créé :", output)
+    Path("tiktok_caption.txt").write_text(caption, encoding="utf-8")
+    print("Légende TikTok générée :")
+    print(caption)
 
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
