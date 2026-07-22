@@ -136,42 +136,51 @@ const Final = ({theme}) => {
   </AbsoluteFill>;
 };
 
-export const DealVideo = ({title,shortTitle,currentPrice,originalPrice,discount,imageUrl}) => {
-  const displayTitle = shortTitle || clean(title);
-  const theme=selectTheme(title,discount);
-  const hook=hookFor({title,discount,currentPrice,originalPrice});
+export const DealVideo = ({
+  title,
+  shortTitle: generatedShortTitle,
+  currentPrice,
+  originalPrice,
+  discount,
+  imageUrl,
+}) => {
+  const displayTitle = generatedShortTitle || shortTitle(title);
+  const theme = selectTheme(title, discount);
+  const hook = hookFor({title, discount, currentPrice, originalPrice});
 
-  return <AbsoluteFill>
-    <Background theme={theme}/>
+  return (
+    <AbsoluteFill>
+      <Background theme={theme}/>
 
-    <Sequence from={INTRO_FROM} durationInFrames={INTRO_FRAMES}>
-      <Html5Audio src={staticFile('voice_intro.mp3')} volume={0.96}/>
-      <Intro theme={theme} hook={hook} discount={discount}/>
-    </Sequence>
+      <Sequence from={INTRO_FROM} durationInFrames={INTRO_FRAMES}>
+        <Html5Audio src={staticFile('voice_intro.mp3')} volume={0.96}/>
+        <Intro theme={theme} hook={hook} discount={discount}/>
+      </Sequence>
 
-    <Sequence from={PRODUCT_FROM} durationInFrames={PRODUCT_FRAMES}>
-      <Html5Audio src={staticFile('voice_product.mp3')} volume={0.96}/>
-      <Product
-        theme={theme}
-        title={displayTitle}
-        imageUrl={imageUrl}
-        discount={discount}
-      />
-    </Sequence>
+      <Sequence from={PRODUCT_FROM} durationInFrames={PRODUCT_FRAMES}>
+        <Html5Audio src={staticFile('voice_product.mp3')} volume={0.96}/>
+        <Product
+          theme={theme}
+          title={displayTitle}
+          imageUrl={imageUrl}
+          discount={discount}
+        />
+      </Sequence>
 
-    <Sequence from={PRICE_FROM} durationInFrames={PRICE_FRAMES}>
-      <Html5Audio src={staticFile('voice_price.mp3')} volume={0.96}/>
-      <Price
-        theme={theme}
-        currentPrice={currentPrice}
-        originalPrice={originalPrice}
-        discount={discount}
-      />
-    </Sequence>
+      <Sequence from={PRICE_FROM} durationInFrames={PRICE_FRAMES}>
+        <Html5Audio src={staticFile('voice_price.mp3')} volume={0.96}/>
+        <Price
+          theme={theme}
+          currentPrice={currentPrice}
+          originalPrice={originalPrice}
+          discount={discount}
+        />
+      </Sequence>
 
-    <Sequence from={FINAL_FROM} durationInFrames={FINAL_FRAMES}>
-      <Html5Audio src={staticFile('voice_final.mp3')} volume={0.96}/>
-      <Final theme={theme}/>
-    </Sequence>
-  </AbsoluteFill>;
+      <Sequence from={FINAL_FROM} durationInFrames={FINAL_FRAMES}>
+        <Html5Audio src={staticFile('voice_final.mp3')} volume={0.96}/>
+        <Final theme={theme}/>
+      </Sequence>
+    </AbsoluteFill>
+  );
 };
