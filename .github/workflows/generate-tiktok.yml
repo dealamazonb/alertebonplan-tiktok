@@ -1,4 +1,4 @@
-name: Generate TikTok Video V16
+name: Generate TikTok Video V18
 
 on:
   workflow_dispatch:
@@ -71,7 +71,8 @@ jobs:
           sudo apt-get install -y ffmpeg
 
 
-      - name: Filtrer les offres inférieures à 25 %
+
+      - name: Sélectionner les offres intéressantes
         id: eligibility
         shell: bash
         run: |
@@ -79,6 +80,12 @@ jobs:
 
           node <<'NODE'
           const fs = require('fs');
+
+          const title = String(process.env.DEAL_TITLE || '').trim();
+          const normalizedTitle = title
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
 
           const rawDiscount = process.env.DISCOUNT || '';
           const currentRaw = process.env.CURRENT_PRICE || '';
@@ -90,6 +97,7 @@ jobs:
               .replace(/[€$£]/g, '')
               .replace(',', '.')
               .replace(/[^\d.-]/g, '');
+
             const number = Number(normalized);
             return Number.isFinite(number) ? number : null;
           };
@@ -114,7 +122,105 @@ jobs:
             }
           }
 
-          const eligible = discount !== null && discount >= 25;
+          const categories = [
+            {
+              name: 'Gaming et informatique',
+              keywords: [
+                'rtx ', 'geforce', 'radeon', 'ryzen', 'intel core', 'ssd',
+                'nvme', 'disque dur', 'pc gamer', 'ordinateur portable',
+                'laptop', 'ecran gaming', 'moniteur', 'clavier mecanique',
+                'souris gaming', 'casque gaming', 'playstation', 'ps5',
+                'xbox', 'nintendo switch', 'steam deck', 'rog ally',
+                'carte graphique', 'processeur', 'ram ddr', 'wifi 7'
+              ]
+            },
+            {
+              name: 'Smartphones et objets connectés',
+              keywords: [
+                'iphone', 'samsung galaxy', 'google pixel', 'smartphone',
+                'telephone', 'xiaomi', 'oneplus', 'honor', 'apple watch',
+                'galaxy watch', 'montre connectee', 'airpods', 'ecouteurs',
+                'casque bluetooth', 'enceinte bluetooth', 'tablette', 'ipad'
+              ]
+            },
+            {
+              name: 'TV, image et audio',
+              keywords: [
+                'televiseur', 'smart tv', ' tv ', 'oled', 'qled',
+                'mini led', 'video projecteur', 'videoprojecteur',
+                'barre de son', 'home cinema', 'soundbar'
+              ]
+            },
+            {
+              name: 'Maison et électroménager',
+              keywords: [
+                'air fryer', 'friteuse sans huile', 'robot aspirateur',
+                'aspirateur balai', 'aspirateur robot', 'dyson', 'roborock',
+                'dreame', 'ecovacs', 'ninja', 'kitchenaid', 'thermomix',
+                'machine a cafe', 'cafe grain', 'delonghi', 'philips airfryer',
+                'robot cuisine', 'lave linge', 'seche linge', 'lave vaisselle',
+                'refrigerateur', 'congelateur', 'climatiseur', 'ventilateur'
+              ]
+            },
+            {
+              name: 'Bricolage et jardin',
+              keywords: [
+                'bosch professional', 'makita', 'dewalt', 'milwaukee',
+                'parkside', 'perceuse', 'visseuse', 'meuleuse',
+                'tondeuse', 'tronconneuse', 'nettoyeur haute pression',
+                'karcher', 'barbecue', 'plancha'
+              ]
+            },
+            {
+              name: 'Jouets et culture populaire',
+              keywords: [
+                'lego', 'playmobil', 'pokemon', 'nintendo', 'marvel',
+                'star wars', 'harry potter', 'funko pop', 'jeu de societe'
+              ]
+            },
+            {
+              name: 'Beauté et premium',
+              keywords: [
+                'parfum', 'coffret parfum', 'lisseur', 'seche cheveux',
+                'oral-b', 'brosse a dents electrique', 'tondeuse barbe',
+                'rasoir electrique'
+              ]
+            },
+            {
+              name: 'Auto et mobilité',
+              keywords: [
+                'dashcam', 'carplay', 'android auto', 'chargeur voiture',
+                'compresseur voiture', 'trottinette electrique',
+                'velo electrique'
+              ]
+            }
+          ];
+
+          const matchedCategories = categories
+            .filter((category) =>
+              category.keywords.some((keyword) => normalizedTitle.includes(keyword))
+            )
+            .map((category) => category.name);
+
+          const isInteresting = matchedCategories.length > 0;
+
+          let eligible = false;
+          let reason = '';
+
+          if (discount === null) {
+            reason = 'pourcentage de réduction introuvable';
+          } else if (discount >= 40) {
+            eligible = true;
+            reason = `forte réduction de ${discount.toFixed(2)} %`;
+          } else if (discount >= 25 && isInteresting) {
+            eligible = true;
+            reason = `article populaire (${matchedCategories.join(', ')}) avec ${discount.toFixed(2)} % de réduction`;
+          } else if (discount >= 25) {
+            reason = `article non prioritaire avec seulement ${discount.toFixed(2)} % de réduction`;
+          } else {
+            reason = `réduction insuffisante de ${discount.toFixed(2)} %`;
+          }
+
           const normalizedDiscount = discount === null
             ? ''
             : `-${Math.round(discount)}%`;
@@ -125,16 +231,24 @@ jobs:
               `eligible=${eligible}`,
               `discount_value=${discount === null ? '' : discount.toFixed(2)}`,
               `normalized_discount=${normalizedDiscount}`,
+              `interesting=${isInteresting}`,
+              `category=${matchedCategories.join(' / ')}`,
               '',
             ].join('\n')
           );
 
+          console.log(`Produit : ${title}`);
+          console.log(`Réduction : ${discount === null ? 'introuvable' : discount.toFixed(2) + ' %'}`);
+          console.log(`Catégorie intéressante : ${isInteresting ? 'oui' : 'non'}`);
+
+          if (matchedCategories.length > 0) {
+            console.log(`Catégorie détectée : ${matchedCategories.join(' / ')}`);
+          }
+
           if (eligible) {
-            console.log(`✅ Offre retenue : ${discount.toFixed(2)} % de réduction.`);
+            console.log(`✅ Vidéo autorisée : ${reason}.`);
           } else {
-            console.log(
-              `⏭️ Aucune vidéo créée : réduction ${discount === null ? 'introuvable' : discount.toFixed(2) + ' %'}, minimum requis 25 %.`
-            );
+            console.log(`⏭️ Vidéo ignorée : ${reason}.`);
           }
           NODE
 
