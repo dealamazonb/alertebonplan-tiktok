@@ -20,6 +20,7 @@ export const RemotionRoot = () => {
         discount: '',
         imageUrl: '',
         affiliateUrl: '',
+        telegramUrl: '',
       }}
     />
   );
