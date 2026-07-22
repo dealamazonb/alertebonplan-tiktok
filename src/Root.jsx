@@ -7,8 +7,8 @@ export const RemotionRoot = () => {
     <Composition
       id="DealVideo"
       component={DealVideo}
-      durationInFrames={800}
-      fps={60}
+      durationInFrames={300}
+      fps={30}
       width={1080}
       height={1920}
       defaultProps={{
