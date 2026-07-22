@@ -154,7 +154,7 @@ jobs:
       - name: Générer la voix française
         run: python generate_voice.py
 
-      - name: Adapter automatiquement la durée de la vidéo à la voix
+      - name: Synchroniser chaque scène avec sa voix
         shell: bash
         run: |
           set -euo pipefail
@@ -164,59 +164,51 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
 
-          AUDIO_SECONDS="$(ffprobe \
-            -v error \
-            -show_entries format=duration \
-            -of default=noprint_wrappers=1:nokey=1 \
-            public/voice.mp3)"
+          INTRO_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_intro.mp3)"
+          PRODUCT_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_product.mp3)"
+          PRICE_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_price.mp3)"
+          FINAL_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_final.mp3)"
 
-          node - "$AUDIO_SECONDS" <<'NODE'
+          node - "$INTRO_SECONDS" "$PRODUCT_SECONDS" "$PRICE_SECONDS" "$FINAL_SECONDS" <<'NODE'
           const fs = require('fs');
 
-          const audioSeconds = Number(process.argv[2]);
           const fps = 30;
+          const padding = 0.35;
+          const values = process.argv.slice(2).map(Number);
 
-          if (!Number.isFinite(audioSeconds) || audioSeconds <= 0) {
-            throw new Error(`Durée audio invalide : ${process.argv[2]}`);
+          if (values.some(v => !Number.isFinite(v) || v <= 0)) {
+            throw new Error(`Durées audio invalides : ${values.join(', ')}`);
           }
 
-          // Petite marge pour éviter de couper la dernière syllabe.
-          const endPaddingSeconds = 0.75;
+          const frames = values.map(seconds => Math.ceil((seconds + padding) * fps));
+          const [intro, product, price, finalScene] = frames;
 
-          // Garde-fous contre un fichier audio anormal.
-          const minimumSeconds = 6;
-          const maximumSeconds = 30;
+          const content = [
+            `export const FPS = ${fps};`,
+            `export const INTRO_FRAMES = ${intro};`,
+            `export const PRODUCT_FRAMES = ${product};`,
+            `export const PRICE_FRAMES = ${price};`,
+            `export const FINAL_FRAMES = ${finalScene};`,
+            '',
+            'export const INTRO_FROM = 0;',
+            'export const PRODUCT_FROM = INTRO_FROM + INTRO_FRAMES;',
+            'export const PRICE_FROM = PRODUCT_FROM + PRODUCT_FRAMES;',
+            'export const FINAL_FROM = PRICE_FROM + PRICE_FRAMES;',
+            'export const TOTAL_FRAMES = FINAL_FROM + FINAL_FRAMES;',
+            '',
+          ].join('
+');
 
-          const videoSeconds = Math.min(
-            maximumSeconds,
-            Math.max(minimumSeconds, audioSeconds + endPaddingSeconds)
-          );
+          fs.writeFileSync('src/timings.js', content);
 
-          const durationInFrames = Math.ceil(videoSeconds * fps);
-          const rootPath = 'src/Root.jsx';
-
-          let root = fs.readFileSync(rootPath, 'utf8');
-
-          if (!/durationInFrames=\{\d+\}/.test(root)) {
-            throw new Error(
-              'Impossible de trouver durationInFrames={nombre} dans src/Root.jsx'
-            );
-          }
-
-          root = root.replace(
-            /durationInFrames=\{\d+\}/,
-            `durationInFrames={${durationInFrames}}`
-          );
-
-          fs.writeFileSync(rootPath, root);
-
-          console.log(`Durée de la voix : ${audioSeconds.toFixed(3)} s`);
-          console.log(`Marge de fin : ${endPaddingSeconds.toFixed(2)} s`);
-          console.log(`Durée finale : ${videoSeconds.toFixed(3)} s`);
-          console.log(`Durée Remotion : ${durationInFrames} frames à ${fps} FPS`);
+          console.log(`Intro : ${values[0].toFixed(2)} s → ${intro} frames`);
+          console.log(`Produit : ${values[1].toFixed(2)} s → ${product} frames`);
+          console.log(`Prix : ${values[2].toFixed(2)} s → ${price} frames`);
+          console.log(`Final : ${values[3].toFixed(2)} s → ${finalScene} frames`);
+          console.log(`Total : ${frames.reduce((a, b) => a + b, 0)} frames`);
           NODE
 
-          grep "durationInFrames" src/Root.jsx
+          cat src/timings.js
 
       - name: Générer la légende TikTok
         run: python generate_caption.py
