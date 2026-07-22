@@ -154,6 +154,55 @@ jobs:
       - name: Générer la voix française
         run: python generate_voice.py
 
+      - name: Adapter automatiquement la durée de la vidéo
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          AUDIO_SECONDS="$(ffprobe             -v error             -show_entries format=duration             -of default=noprint_wrappers=1:nokey=1             public/voice.mp3)"
+
+          node - "$AUDIO_SECONDS" <<'NODE'
+          const fs = require('fs');
+
+          const audioSeconds = Number(process.argv[2]);
+          const fps = 30;
+
+          if (!Number.isFinite(audioSeconds) || audioSeconds <= 0) {
+            throw new Error(`Durée audio invalide : ${process.argv[2]}`);
+          }
+
+          // Marge courte pour que la dernière syllabe et l'écran final respirent.
+          const endPaddingSeconds = 0.9;
+
+          // Garde-fous uniquement pour éviter une vidéo anormalement courte ou longue.
+          const minimumSeconds = 7;
+          const maximumSeconds = 25;
+
+          const videoSeconds = Math.min(
+            maximumSeconds,
+            Math.max(minimumSeconds, audioSeconds + endPaddingSeconds)
+          );
+
+          const durationInFrames = Math.ceil(videoSeconds * fps);
+
+          fs.writeFileSync(
+            'src/videoDuration.js',
+            [
+              `export const VIDEO_FPS = ${fps};`,
+              `export const AUDIO_DURATION_SECONDS = ${audioSeconds.toFixed(3)};`,
+              `export const VIDEO_DURATION_SECONDS = ${videoSeconds.toFixed(3)};`,
+              `export const VIDEO_DURATION_IN_FRAMES = ${durationInFrames};`,
+              ''
+            ].join('\n')
+          );
+
+          console.log(`Durée de la voix : ${audioSeconds.toFixed(3)} s`);
+          console.log(`Durée de la vidéo : ${videoSeconds.toFixed(3)} s`);
+          console.log(`Nombre d'images : ${durationInFrames}`);
+          NODE
+
+          cat src/videoDuration.js
+
       - name: Générer la légende TikTok
         run: python generate_caption.py
 
