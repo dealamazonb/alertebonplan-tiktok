@@ -1,4 +1,4 @@
-name: Generate TikTok Video
+name: Generate TikTok Video V16
 
 on:
   workflow_dispatch:
@@ -49,31 +49,33 @@ jobs:
       - name: Installer Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version: "22"
 
       - name: Installer Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Installer les dépendances Node
-        run: npm install --no-audit --no-fund
-
-      - name: Installer la voix française
-        run: python -m pip install --upgrade pip edge-tts==7.2.8
-
-      - name: Préparer une image locale fiable
+      - name: Installer les dépendances
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          python -m pip install --upgrade pip
+          python -m pip install edge-tts==7.2.8
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Préparer l'image produit
+        shell: bash
+        run: |
+          set -euo pipefail
           mkdir -p public
           rm -f public/product-image.jpg public/product-image.svg
 
           IMAGE_OK=false
 
           if [ -n "${IMAGE_URL:-}" ]; then
-            echo "Tentative de téléchargement de l'image produit..."
-
             if curl \
               --location \
               --fail \
@@ -81,14 +83,12 @@ jobs:
               --show-error \
               --max-time 25 \
               --retry 2 \
-              --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36" \
+              --user-agent "Mozilla/5.0" \
               --referer "https://www.amazon.fr/" \
               --output public/product-image.jpg \
               "$IMAGE_URL"; then
 
               MIME_TYPE="$(file --brief --mime-type public/product-image.jpg || true)"
-              echo "Type détecté : ${MIME_TYPE}"
-
               if [[ "$MIME_TYPE" == image/* ]] && [ -s public/product-image.jpg ]; then
                 IMAGE_OK=true
               fi
@@ -96,9 +96,7 @@ jobs:
           fi
 
           if [ "$IMAGE_OK" != true ]; then
-            echo "Image distante inutilisable : création de l'image de secours."
             rm -f public/product-image.jpg
-
             cat > public/product-image.svg <<'SVG'
           <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
             <defs>
@@ -106,27 +104,19 @@ jobs:
                 <stop offset="0" stop-color="#0b0d12"/>
                 <stop offset="1" stop-color="#222936"/>
               </linearGradient>
-              <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#ff9900"/>
-                <stop offset="1" stop-color="#ffcc33"/>
-              </linearGradient>
             </defs>
             <rect width="1080" height="1080" rx="90" fill="url(#bg)"/>
             <circle cx="540" cy="430" r="230" fill="#111722" stroke="#ff9900" stroke-width="18"/>
-            <path d="M390 430h300l-35 210H425z" fill="none" stroke="url(#accent)" stroke-width="34" stroke-linejoin="round"/>
-            <circle cx="470" cy="690" r="30" fill="#ff9900"/>
-            <circle cx="620" cy="690" r="30" fill="#ff9900"/>
-            <text x="540" y="850" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="72" font-weight="800">BON PLAN AMAZON</text>
-            <text x="540" y="930" text-anchor="middle" fill="#ff9900" font-family="Arial, sans-serif" font-size="48" font-weight="700">AlerteBonPlan</text>
+            <text x="540" y="820" text-anchor="middle" fill="#ffffff" font-family="Arial" font-size="72" font-weight="800">BON PLAN AMAZON</text>
+            <text x="540" y="910" text-anchor="middle" fill="#ff9900" font-family="Arial" font-size="48" font-weight="700">AlerteBonPlan</text>
           </svg>
           SVG
           fi
 
-          ls -lh public/product-image.*
-
       - name: Créer les données du deal
         shell: bash
         run: |
+          set -euo pipefail
           node <<'NODE'
           const fs = require('fs');
 
@@ -136,11 +126,12 @@ jobs:
 
           const props = {
             title: process.env.DEAL_TITLE || 'Bon plan Amazon',
+            shortTitle: '',
             currentPrice: process.env.CURRENT_PRICE || '',
             originalPrice: process.env.ORIGINAL_PRICE || '',
             discount: process.env.DISCOUNT || '',
             imageUrl: localImage,
-            affiliateUrl: process.env.AFFILIATE_URL || ''
+            affiliateUrl: process.env.AFFILIATE_URL || '',
           };
 
           if (!props.affiliateUrl) {
@@ -148,21 +139,33 @@ jobs:
           }
 
           fs.writeFileSync('props.json', JSON.stringify(props, null, 2));
-          console.log('Données du deal préparées :', props);
+          console.log(props);
           NODE
 
-      - name: Générer la voix française
-        run: python generate_voice.py
-
-      - name: Synchroniser chaque scène avec sa voix
+      - name: Générer les 4 voix
         shell: bash
         run: |
           set -euo pipefail
+          python generate_voice.py
 
-          if ! command -v ffprobe >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
-          fi
+          for AUDIO in \
+            public/voice_intro.mp3 \
+            public/voice_product.mp3 \
+            public/voice_price.mp3 \
+            public/voice_final.mp3
+          do
+            test -s "$AUDIO" || {
+              echo "::error::Fichier audio absent : $AUDIO"
+              exit 1
+            }
+          done
+
+          ls -lh public/voice_*.mp3
+
+      - name: Synchroniser les scènes
+        shell: bash
+        run: |
+          set -euo pipefail
 
           INTRO_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_intro.mp3)"
           PRODUCT_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_product.mp3)"
@@ -173,18 +176,25 @@ jobs:
           const fs = require('fs');
 
           const fps = 30;
-          const padding = 0.35;
-          const values = process.argv.slice(2).map(Number);
+          const paddingSeconds = 0.30;
+          const durations = process.argv.slice(2).map(Number);
 
-          if (values.some(v => !Number.isFinite(v) || v <= 0)) {
-            throw new Error(`Durées audio invalides : ${values.join(', ')}`);
+          if (
+            durations.length !== 4 ||
+            durations.some((duration) => !Number.isFinite(duration) || duration <= 0)
+          ) {
+            throw new Error(`Durées audio invalides : ${durations.join(', ')}`);
           }
 
-          const frames = values.map(seconds => Math.ceil((seconds + padding) * fps));
+          const frames = durations.map((duration) =>
+            Math.ceil((duration + paddingSeconds) * fps)
+          );
+
           const [intro, product, price, finalScene] = frames;
 
           const content = [
             `export const FPS = ${fps};`,
+            '',
             `export const INTRO_FRAMES = ${intro};`,
             `export const PRODUCT_FRAMES = ${product};`,
             `export const PRICE_FRAMES = ${price};`,
@@ -194,17 +204,18 @@ jobs:
             'export const PRODUCT_FROM = INTRO_FROM + INTRO_FRAMES;',
             'export const PRICE_FROM = PRODUCT_FROM + PRODUCT_FRAMES;',
             'export const FINAL_FROM = PRICE_FROM + PRICE_FRAMES;',
+            '',
             'export const TOTAL_FRAMES = FINAL_FROM + FINAL_FRAMES;',
             '',
           ].join('\n');
 
           fs.writeFileSync('src/timings.js', content);
 
-          console.log(`Intro : ${values[0].toFixed(2)} s → ${intro} frames`);
-          console.log(`Produit : ${values[1].toFixed(2)} s → ${product} frames`);
-          console.log(`Prix : ${values[2].toFixed(2)} s → ${price} frames`);
-          console.log(`Final : ${values[3].toFixed(2)} s → ${finalScene} frames`);
-          console.log(`Total : ${frames.reduce((a, b) => a + b, 0)} frames`);
+          console.log(`Intro : ${durations[0].toFixed(2)} s -> ${intro} frames`);
+          console.log(`Produit : ${durations[1].toFixed(2)} s -> ${product} frames`);
+          console.log(`Prix : ${durations[2].toFixed(2)} s -> ${price} frames`);
+          console.log(`Final : ${durations[3].toFixed(2)} s -> ${finalScene} frames`);
+          console.log(`Total : ${frames.reduce((sum, value) => sum + value, 0)} frames`);
           NODE
 
           cat src/timings.js
@@ -212,8 +223,10 @@ jobs:
       - name: Générer la légende TikTok
         run: python generate_caption.py
 
-      - name: Générer la vidéo avec Remotion
+      - name: Générer la vidéo
+        shell: bash
         run: |
+          set -euo pipefail
           npx remotion render \
             src/index.jsx \
             DealVideo \
@@ -222,16 +235,18 @@ jobs:
             --codec=h264 \
             --crf=16
 
-      - name: Vérifier les fichiers
+      - name: Vérifier la vidéo
+        shell: bash
         run: |
+          set -euo pipefail
           test -s video_tiktok.mp4
-          test -s public/voice.mp3
           test -s tiktok_caption.txt
-          ls -lh video_tiktok.mp4 public/voice.mp3 tiktok_caption.txt
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 video_tiktok.mp4
 
       - name: Envoyer la vidéo dans Telegram
         shell: bash
         run: |
+          set -euo pipefail
           curl --fail-with-body \
             --request POST \
             "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendVideo" \
@@ -240,9 +255,10 @@ jobs:
             --form "supports_streaming=true" \
             --form-string "caption=🎬 Vidéo TikTok prête — la légende arrive dans le message suivant."
 
-      - name: Envoyer la légende prête à copier
+      - name: Envoyer la légende
         shell: bash
         run: |
+          set -euo pipefail
           CAPTION="$(cat tiktok_caption.txt)"
 
           curl --fail-with-body \
