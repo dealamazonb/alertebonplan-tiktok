@@ -1,4 +1,4 @@
-name: Generate TikTok Video V18
+name: Generate TikTok Video V19
 
 on:
   workflow_dispatch:
@@ -207,18 +207,24 @@ jobs:
           let eligible = false;
           let reason = '';
 
-          if (discount === null) {
-            reason = 'pourcentage de réduction introuvable';
-          } else if (discount >= 40) {
+          /*
+           * Nouvelles règles :
+           * - article dans une catégorie intéressante : vidéo à chaque fois,
+           *   même avec une petite réduction ou un pourcentage absent ;
+           * - article non prioritaire : vidéo uniquement à partir de 40 %.
+           */
+          if (isInteresting) {
             eligible = true;
-            reason = `forte réduction de ${discount.toFixed(2)} %`;
-          } else if (discount >= 25 && isInteresting) {
+            reason = discount === null
+              ? `article populaire (${matchedCategories.join(', ')})`
+              : `article populaire (${matchedCategories.join(', ')}) avec ${discount.toFixed(2)} % de réduction`;
+          } else if (discount !== null && discount >= 40) {
             eligible = true;
-            reason = `article populaire (${matchedCategories.join(', ')}) avec ${discount.toFixed(2)} % de réduction`;
-          } else if (discount >= 25) {
-            reason = `article non prioritaire avec seulement ${discount.toFixed(2)} % de réduction`;
+            reason = `article non prioritaire mais forte réduction de ${discount.toFixed(2)} %`;
+          } else if (discount === null) {
+            reason = 'article non prioritaire et pourcentage de réduction introuvable';
           } else {
-            reason = `réduction insuffisante de ${discount.toFixed(2)} %`;
+            reason = `article non prioritaire avec seulement ${discount.toFixed(2)} % de réduction`;
           }
 
           const normalizedDiscount = discount === null
