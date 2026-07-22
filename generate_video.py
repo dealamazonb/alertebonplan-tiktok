@@ -1,366 +1,217 @@
+import asyncio
+import json
 import os
-import textwrap
+import re
 from pathlib import Path
 
-import requests
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
-from moviepy import ImageClip
+import edge_tts
 
 
-WIDTH = 1080
-HEIGHT = 1920
-DURATION = 9
-
-OUTPUT_FILE = Path("video_tiktok.mp4")
-FRAME_FILE = Path("frame_v2.png")
-PRODUCT_FILE = Path("product_image")
+def clean(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
-def download_image(url: str, destination: Path) -> None:
-    if not url:
-        raise ValueError("L'URL de l'image produit est manquante.")
+def smart_product_title(value: str, max_length: int = 54) -> str:
+    title = clean(value)
 
-    response = requests.get(
-        url,
-        timeout=30,
-        headers={
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 Chrome/124 Safari/537.36"
-            ),
-            "Accept": "image/avif,image/webp,image/png,image/jpeg,*/*",
-        },
-    )
+    # Retire les mentions commerciales inutiles.
+    noise_patterns = [
+        r"\s*\(\s*(?:vendeur tiers|expédié par amazon|vendu par amazon|livraison prime|stock limité|offre prime)\s*\)\s*$",
+        r"\s*[-–—]\s*(?:vendeur tiers|expédié par amazon|vendu par amazon|livraison prime)\s*$",
+        r"\s*\[(?:vendeur tiers|expédié par amazon|vendu par amazon|prime)\]\s*$",
+    ]
+    for pattern in noise_patterns:
+        title = re.sub(pattern, "", title, flags=re.IGNORECASE).strip()
 
-    response.raise_for_status()
+    lower = title.lower()
 
-    content_type = response.headers.get("content-type", "").lower()
-
-    if "image" not in content_type:
-        raise ValueError(
-            f"L'URL reçue ne renvoie pas une image : {content_type}"
+    # Téléviseurs : conserve seulement le type, la définition, la marque
+    # et les technologies importantes. Les références techniques sont ignorées.
+    if re.search(r"\b(tv|téléviseur|television|smart tv)\b", lower):
+        brand_match = re.search(
+            r"\b(TCL|Samsung|LG|Sony|Philips|Hisense|Panasonic|Xiaomi|Sharp|Thomson)\b",
+            title,
+            flags=re.IGNORECASE,
         )
+        brand = brand_match.group(1).upper() if brand_match else ""
 
-    destination.write_bytes(response.content)
+        tokens = []
+        if re.search(r"\b8k\b", lower):
+            tokens.append("8K")
+        elif re.search(r"\b4k\b|\bultra\s*hd\b|\buhd\b", lower):
+            tokens.append("4K")
 
+        tech_map = [
+            (r"\bqd[\s-]?mini[\s-]?led\b", "QD-MINI LED"),
+            (r"\bmini[\s-]?led\b", "MINI LED"),
+            (r"\bqd[\s-]?oled\b", "QD-OLED"),
+            (r"\boled\b", "OLED"),
+            (r"\bqled\b", "QLED"),
+            (r"\bneo\s*qled\b", "NEO QLED"),
+        ]
+        tech = ""
+        for pattern, label in tech_map:
+            if re.search(pattern, lower):
+                tech = label
+                break
 
-def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
-    path = (
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        if bold
-        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    )
+        parts = ["TV"]
+        if tokens:
+            parts.extend(tokens)
+        if brand:
+            parts.append(brand)
+        if tech:
+            parts.append(tech)
 
-    return ImageFont.truetype(path, size)
+        result = " ".join(parts)
+        return result[:max_length].strip()
 
-
-def draw_centered_text(
-    draw: ImageDraw.ImageDraw,
-    text: str,
-    y: int,
-    text_font: ImageFont.FreeTypeFont,
-    fill: str,
-) -> None:
-    bounds = draw.textbbox((0, 0), text, font=text_font)
-    text_width = bounds[2] - bounds[0]
-
-    draw.text(
-        ((WIDTH - text_width) / 2, y),
-        text,
-        font=text_font,
-        fill=fill,
-    )
-
-
-def create_gradient_background() -> Image.Image:
-    background = Image.new("RGB", (WIDTH, HEIGHT))
-
-    start = (15, 23, 42)
-    end = (30, 41, 59)
-
-    pixels = background.load()
-
-    for y in range(HEIGHT):
-        ratio = y / max(HEIGHT - 1, 1)
-
-        red = int(start[0] + (end[0] - start[0]) * ratio)
-        green = int(start[1] + (end[1] - start[1]) * ratio)
-        blue = int(start[2] + (end[2] - start[2]) * ratio)
-
-        for x in range(WIDTH):
-            pixels[x, y] = (red, green, blue)
-
-    return background
-
-
-def create_product_card(
-    product: Image.Image,
-) -> Image.Image:
-    card_width = 900
-    card_height = 820
-
-    shadow = Image.new(
-        "RGBA",
-        (card_width + 80, card_height + 80),
-        (0, 0, 0, 0),
-    )
-
-    shadow_draw = ImageDraw.Draw(shadow)
-
-    shadow_draw.rounded_rectangle(
-        (40, 40, card_width + 40, card_height + 40),
-        radius=55,
-        fill=(0, 0, 0, 170),
-    )
-
-    shadow = shadow.filter(ImageFilter.GaussianBlur(28))
-
-    card = Image.new(
-        "RGBA",
-        (card_width + 80, card_height + 80),
-        (0, 0, 0, 0),
-    )
-
-    card.alpha_composite(shadow)
-
-    draw = ImageDraw.Draw(card)
-
-    draw.rounded_rectangle(
-        (40, 40, card_width + 40, card_height + 40),
-        radius=55,
-        fill=(255, 255, 255, 255),
-    )
-
-    product = product.convert("RGBA")
-    product.thumbnail((760, 700), Image.Resampling.LANCZOS)
-
-    product_x = (card.width - product.width) // 2
-    product_y = (card.height - product.height) // 2
-
-    card.alpha_composite(product, (product_x, product_y))
-
-    return card
-
-
-def create_frame(
-    title: str,
-    current_price: str,
-    original_price: str,
-    discount: str,
-    image_url: str,
-) -> None:
-    background = create_gradient_background()
-    draw = ImageDraw.Draw(background)
-
-    # Petit nom de la page
-    draw_centered_text(
-        draw,
-        "ALERTEBONPLAN",
-        58,
-        font(34, bold=True),
-        "#fbbf24",
-    )
-
-    # Bandeau principal
-    draw.rounded_rectangle(
-        (65, 115, 1015, 285),
-        radius=48,
-        fill="#dc2626",
-    )
-
-    draw_centered_text(
-        draw,
-        "ALERTE BON PLAN AMAZON",
-        158,
-        font(58, bold=True),
-        "white",
-    )
-
-    # Produit
-    download_image(image_url, PRODUCT_FILE)
-
-    try:
-        product = Image.open(PRODUCT_FILE)
-        product.load()
-    except Exception as error:
-        raise ValueError(
-            "L'image produit téléchargée est invalide."
-        ) from error
-
-    product_card = create_product_card(product)
-
-    background.paste(
-        product_card,
-        ((WIDTH - product_card.width) // 2, 330),
-        product_card,
-    )
-
-    draw = ImageDraw.Draw(background)
-
-    # Titre sur 4 lignes maximum
-    clean_title = " ".join(title.split())
-    title_lines = textwrap.wrap(clean_title, width=35)[:4]
-
-    title_y = 1240
-
-    for line in title_lines:
-        draw_centered_text(
-            draw,
-            line,
-            title_y,
-            font(46, bold=True),
-            "white",
+    # Smartphones.
+    if re.search(r"\b(smartphone|téléphone|iphone|galaxy|pixel)\b", lower):
+        brand_match = re.search(
+            r"\b(Apple|Samsung|Google|Xiaomi|OnePlus|Honor|Motorola|Nothing|Oppo|Realme)\b",
+            title,
+            flags=re.IGNORECASE,
         )
-        title_y += 60
-
-    # Bloc du prix
-    price_box_top = 1500
-
-    draw.rounded_rectangle(
-        (90, price_box_top, 990, 1840),
-        radius=55,
-        fill=(3, 7, 18),
-        outline="#334155",
-        width=4,
-    )
-
-    if current_price:
-        draw_centered_text(
-            draw,
-            current_price,
-            1550,
-            font(105, bold=True),
-            "#facc15",
+        brand = brand_match.group(1) if brand_match else ""
+        model_match = re.search(
+            r"\b(iPhone\s*\d{1,2}(?:\s*(?:Pro|Pro Max|Plus|Air))?|Galaxy\s*[A-Z]\d{1,3}(?:\s*(?:Ultra|Plus|FE))?|Pixel\s*\d{1,2}(?:\s*(?:Pro|a))?)\b",
+            title,
+            flags=re.IGNORECASE,
         )
+        model = clean(model_match.group(1)) if model_match else ""
+        result = " ".join(x for x in ["Smartphone", brand, model] if x)
+        if result != "Smartphone":
+            return result[:max_length].strip()
+
+    # SSD.
+    if re.search(r"\bssd\b", lower):
+        brand_match = re.search(
+            r"\b(Samsung|Crucial|Kingston|WD|Western Digital|SanDisk|Seagate|Lexar|Corsair)\b",
+            title,
+            flags=re.IGNORECASE,
+        )
+        capacity_match = re.search(r"\b(\d+(?:[.,]\d+)?\s*(?:To|TB|Go|GB))\b", title, flags=re.IGNORECASE)
+        parts = ["SSD"]
+        if brand_match:
+            parts.append(brand_match.group(1))
+        if re.search(r"\bnvme\b", lower):
+            parts.append("NVMe")
+        if capacity_match:
+            parts.append(capacity_match.group(1).replace("TB", "To").replace("GB", "Go"))
+        return " ".join(parts)[:max_length].strip()
+
+    # Processeurs.
+    cpu_match = re.search(
+        r"\b((?:AMD\s*)?Ryzen\s*[3579]\s*\d{4,5}[A-Z0-9]*|Intel\s*Core\s*(?:Ultra\s*)?[3579]\s*\d{3,5}[A-Z0-9-]*)\b",
+        title,
+        flags=re.IGNORECASE,
+    )
+    if cpu_match:
+        return clean(cpu_match.group(1))[:max_length]
+
+    # Cartes graphiques.
+    gpu_match = re.search(
+        r"\b((?:NVIDIA\s*)?(?:GeForce\s*)?RTX\s*\d{4}(?:\s*Ti|\s*SUPER)?|(?:AMD\s*)?Radeon\s*RX\s*\d{4}(?:\s*XT)?)\b",
+        title,
+        flags=re.IGNORECASE,
+    )
+    if gpu_match:
+        return clean(gpu_match.group(1))[:max_length]
+
+    # Nettoyage générique : retire références longues et détails secondaires.
+    title = re.sub(r"\b[A-Z]{1,5}[-_]?\d{4,}[A-Z0-9_-]*\b", "", title)
+    title = re.sub(r"\b(?:modèle|référence|ref\.?)\s*:?\s*[A-Z0-9_-]+\b", "", title, flags=re.IGNORECASE)
+    title = re.split(r"\s+(?:avec|comprend|inclut|compatible avec)\s+", title, maxsplit=1, flags=re.IGNORECASE)[0]
+    title = re.split(r"\s*[,|;]\s*", title, maxsplit=1)[0]
+    title = clean(title)
+
+    if len(title) > max_length:
+        title = title[:max_length].rsplit(" ", 1)[0].rstrip(" ,;:-")
+
+    return title or "Bon plan Amazon"
+
+
+def percent(value: str) -> int:
+    match = re.search(r"(\d{1,3})", str(value or ""))
+    return int(match.group(1)) if match else 0
+
+
+def build_segments(data: dict) -> dict:
+    title = smart_product_title(data.get("title"), max_length=54)
+    current = clean(data.get("currentPrice"))
+    original = clean(data.get("originalPrice"))
+    discount = clean(data.get("discount"))
+    reduction = percent(discount)
+
+    if reduction >= 50:
+        intro = "Alerte bon plan. Le prix vient de s'effondrer."
+    elif reduction >= 30:
+        intro = "Alerte bon plan. Grosse baisse de prix."
+    elif current and original:
+        intro = "Alerte bon plan. Amazon baisse enfin le prix."
     else:
-        draw_centered_text(
-            draw,
-            "PROMOTION EN COURS",
-            1570,
-            font(60, bold=True),
-            "#facc15",
-        )
+        intro = "Alerte bon plan. Une promotion à ne pas manquer."
 
-    if original_price:
-        old_price_text = f"Au lieu de {original_price}"
+    product = f"{title}."
 
-        bounds = draw.textbbox(
-            (0, 0),
-            old_price_text,
-            font=font(46),
-        )
-
-        old_price_width = bounds[2] - bounds[0]
-        old_price_x = (WIDTH - old_price_width) / 2
-        old_price_y = 1690
-
-        draw.text(
-            (old_price_x, old_price_y),
-            old_price_text,
-            font=font(46),
-            fill="#cbd5e1",
-        )
-
-        draw.line(
-            (
-                old_price_x,
-                old_price_y + 30,
-                old_price_x + old_price_width,
-                old_price_y + 30,
-            ),
-            fill="#ef4444",
-            width=7,
-        )
-
+    price_parts = []
+    if current:
+        price_parts.append(f"Prix actuel : {current}.")
+    if original:
+        price_parts.append(f"Au lieu de {original}.")
     if discount:
-        badge_left = 350
-        badge_top = 1750
-        badge_right = 730
-        badge_bottom = 1870
+        price_parts.append(f"Réduction : {discount}.")
+    price = " ".join(price_parts) or "Découvre le prix de cette offre."
 
-        draw.rounded_rectangle(
-            (
-                badge_left,
-                badge_top,
-                badge_right,
-                badge_bottom,
-            ),
-            radius=40,
-            fill="#dc2626",
-        )
+    final = "Lien du produit dans la description."
 
-        draw_centered_text(
-            draw,
-            discount,
-            1766,
-            font(68, bold=True),
-            "white",
-        )
+    return {
+        "intro": intro,
+        "product": product,
+        "price": price,
+        "final": final,
+        "shortTitle": title,
+    }
 
-    # Bas de vidéo
-    draw_centered_text(
-        draw,
-        "Lien du produit dans la description",
-        1880,
-        font(32),
-        "#cbd5e1",
+
+async def create_audio(text: str, output: Path, voice: str, rate: str, pitch: str) -> None:
+    communicate = edge_tts.Communicate(
+        text=text,
+        voice=voice,
+        rate=rate,
+        pitch=pitch,
+        volume="+0%",
     )
+    await communicate.save(str(output))
 
-    background.save(FRAME_FILE, quality=95)
 
+async def main() -> None:
+    props_path = Path("props.json")
+    if not props_path.exists():
+        raise FileNotFoundError("props.json est introuvable.")
 
-def create_video() -> None:
-    title = os.environ.get("DEAL_TITLE", "").strip()
-    current_price = os.environ.get("CURRENT_PRICE", "").strip()
-    original_price = os.environ.get("ORIGINAL_PRICE", "").strip()
-    discount = os.environ.get("DISCOUNT", "").strip()
-    image_url = os.environ.get("IMAGE_URL", "").strip()
+    data = json.loads(props_path.read_text(encoding="utf-8"))
+    segments = build_segments(data)
 
-    if not title:
-        raise ValueError("DEAL_TITLE est manquant.")
+    public = Path("public")
+    public.mkdir(parents=True, exist_ok=True)
 
-    if not image_url:
-        raise ValueError("IMAGE_URL est manquante.")
+    voice = os.getenv("TTS_VOICE", "fr-FR-HenriNeural")
+    rate = os.getenv("TTS_RATE", "-5%")
+    pitch = os.getenv("TTS_PITCH", "-2Hz")
 
-    create_frame(
-        title=title,
-        current_price=current_price,
-        original_price=original_price,
-        discount=discount,
-        image_url=image_url,
-    )
+    for name in ("intro", "product", "price", "final"):
+        output = public / f"voice_{name}.mp3"
+        await create_audio(segments[name], output, voice, rate, pitch)
+        print(f"{name} : {segments[name]}")
 
-    clip = ImageClip(str(FRAME_FILE)).with_duration(DURATION)
+    # Le titre court est également transmis à Remotion.
+    data["shortTitle"] = segments["shortTitle"]
+    props_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # Zoom lent de 100 % à environ 104 %
-    clip = clip.resized(
-        lambda t: 1 + (0.04 * t / DURATION)
-    )
-
-    # Recadrage constant au format 1080 x 1920
-    clip = clip.cropped(
-        x_center=clip.w / 2,
-        y_center=clip.h / 2,
-        width=WIDTH,
-        height=HEIGHT,
-    )
-
-    clip.write_videofile(
-        str(OUTPUT_FILE),
-        fps=30,
-        codec="libx264",
-        audio=False,
-        preset="medium",
-        ffmpeg_params=[
-            "-pix_fmt",
-            "yuv420p",
-            "-movflags",
-            "+faststart",
-        ],
-    )
-
-    clip.close()
+    print("Titre court :", segments["shortTitle"])
 
 
 if __name__ == "__main__":
-    create_video()
+    asyncio.run(main())
