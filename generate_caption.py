@@ -11,6 +11,39 @@ def clean(value=""):
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
+def clean_product_title(value, max_length=80):
+    title = clean(value)
+
+    suffix_patterns = [
+        r"\s*\(\s*vendeur tiers\s*\)\s*$",
+        r"\s*\(\s*expédié par amazon\s*\)\s*$",
+        r"\s*\(\s*vendu par amazon\s*\)\s*$",
+        r"\s*\(\s*livraison prime\s*\)\s*$",
+        r"\s*\(\s*stock limité\s*\)\s*$",
+        r"\s*\(\s*offre prime\s*\)\s*$",
+        r"\s*[-–—]\s*vendeur tiers\s*$",
+        r"\s*[-–—]\s*expédié par amazon\s*$",
+        r"\s*[-–—]\s*vendu par amazon\s*$",
+        r"\s*\[(?:vendeur tiers|expédié par amazon|vendu par amazon|prime)\]\s*$",
+    ]
+
+    for pattern in suffix_patterns:
+        title = re.sub(pattern, "", title, flags=re.IGNORECASE).strip()
+
+    if len(title) > max_length:
+        for separator in (" - ", " – ", " — ", ", avec ", ", pour ", " | "):
+            head = title.split(separator, 1)[0].strip()
+            if 18 <= len(head) <= max_length:
+                title = head
+                break
+
+    if len(title) > max_length:
+        shortened = title[:max_length].rsplit(" ", 1)[0].strip()
+        title = (shortened or title[:max_length]).rstrip(" ,;:-") + "…"
+
+    return title or "Bon plan Amazon"
+
+
 def number_from_text(value=""):
     match = re.search(r"(\d+(?:[.,]\d+)?)", str(value or "").replace(" ", ""))
     if not match:
@@ -88,7 +121,7 @@ def category_hashtags(title):
 
 
 def select_hook(data):
-    title = clean(data.get("title")) or "ce produit"
+    title = clean_product_title(data.get("title"), max_length=80)
     discount = clean(data.get("discount"))
     current = clean(data.get("currentPrice"))
     original = clean(data.get("originalPrice"))
@@ -119,7 +152,7 @@ def select_hook(data):
 
 
 def build_caption(data):
-    title = clean(data.get("title")) or "Bon plan Amazon"
+    title = clean_product_title(data.get("title"), max_length=80)
     current = clean(data.get("currentPrice"))
     original = clean(data.get("originalPrice"))
     discount = clean(data.get("discount"))
