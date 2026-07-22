@@ -154,12 +154,21 @@ jobs:
       - name: Générer la voix française
         run: python generate_voice.py
 
-      - name: Adapter automatiquement la durée de la vidéo
+      - name: Adapter automatiquement la durée de la vidéo à la voix
         shell: bash
         run: |
           set -euo pipefail
 
-          AUDIO_SECONDS="$(ffprobe             -v error             -show_entries format=duration             -of default=noprint_wrappers=1:nokey=1             public/voice.mp3)"
+          if ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+
+          AUDIO_SECONDS="$(ffprobe \
+            -v error \
+            -show_entries format=duration \
+            -of default=noprint_wrappers=1:nokey=1 \
+            public/voice.mp3)"
 
           node - "$AUDIO_SECONDS" <<'NODE'
           const fs = require('fs');
@@ -171,12 +180,12 @@ jobs:
             throw new Error(`Durée audio invalide : ${process.argv[2]}`);
           }
 
-          // Marge courte pour que la dernière syllabe et l'écran final respirent.
-          const endPaddingSeconds = 0.9;
+          // Petite marge pour éviter de couper la dernière syllabe.
+          const endPaddingSeconds = 0.75;
 
-          // Garde-fous uniquement pour éviter une vidéo anormalement courte ou longue.
-          const minimumSeconds = 7;
-          const maximumSeconds = 25;
+          // Garde-fous contre un fichier audio anormal.
+          const minimumSeconds = 6;
+          const maximumSeconds = 30;
 
           const videoSeconds = Math.min(
             maximumSeconds,
@@ -184,24 +193,30 @@ jobs:
           );
 
           const durationInFrames = Math.ceil(videoSeconds * fps);
+          const rootPath = 'src/Root.jsx';
 
-          fs.writeFileSync(
-            'src/videoDuration.js',
-            [
-              `export const VIDEO_FPS = ${fps};`,
-              `export const AUDIO_DURATION_SECONDS = ${audioSeconds.toFixed(3)};`,
-              `export const VIDEO_DURATION_SECONDS = ${videoSeconds.toFixed(3)};`,
-              `export const VIDEO_DURATION_IN_FRAMES = ${durationInFrames};`,
-              ''
-            ].join('\n')
+          let root = fs.readFileSync(rootPath, 'utf8');
+
+          if (!/durationInFrames=\{\d+\}/.test(root)) {
+            throw new Error(
+              'Impossible de trouver durationInFrames={nombre} dans src/Root.jsx'
+            );
+          }
+
+          root = root.replace(
+            /durationInFrames=\{\d+\}/,
+            `durationInFrames={${durationInFrames}}`
           );
 
+          fs.writeFileSync(rootPath, root);
+
           console.log(`Durée de la voix : ${audioSeconds.toFixed(3)} s`);
-          console.log(`Durée de la vidéo : ${videoSeconds.toFixed(3)} s`);
-          console.log(`Nombre d'images : ${durationInFrames}`);
+          console.log(`Marge de fin : ${endPaddingSeconds.toFixed(2)} s`);
+          console.log(`Durée finale : ${videoSeconds.toFixed(3)} s`);
+          console.log(`Durée Remotion : ${durationInFrames} frames à ${fps} FPS`);
           NODE
 
-          cat src/videoDuration.js
+          grep "durationInFrames" src/Root.jsx
 
       - name: Générer la légende TikTok
         run: python generate_caption.py
