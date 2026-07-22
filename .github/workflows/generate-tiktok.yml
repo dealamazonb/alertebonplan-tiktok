@@ -21,6 +21,9 @@ on:
       affiliate_url:
         description: "Lien affilié Amazon"
         required: true
+      telegram_url:
+        description: "Lien public Telegram, ex. https://t.me/AlerteBonPlan"
+        required: false
 
   repository_dispatch:
     types:
@@ -38,6 +41,7 @@ jobs:
       DISCOUNT: ${{ github.event.client_payload.discount || inputs.discount }}
       IMAGE_URL: ${{ github.event.client_payload.imageUrl || inputs.image_url }}
       AFFILIATE_URL: ${{ github.event.client_payload.affiliateUrl || inputs.affiliate_url }}
+      TELEGRAM_PUBLIC_URL: ${{ github.event.client_payload.telegramUrl || vars.TELEGRAM_PUBLIC_URL || inputs.telegram_url }}
       TTS_VOICE: fr-FR-HenriNeural
       TTS_RATE: "-5%"
       TTS_PITCH: "-2Hz"
@@ -62,11 +66,80 @@ jobs:
           set -euo pipefail
           npm install --no-audit --no-fund
           python -m pip install --upgrade pip
-          python -m pip install edge-tts==7.2.8
+          python -m pip install edge-tts==7.2.8 "qrcode[pil]==8.2"
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
+
+      - name: Filtrer les offres inférieures à 25 %
+        id: eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          node <<'NODE'
+          const fs = require('fs');
+
+          const rawDiscount = process.env.DISCOUNT || '';
+          const currentRaw = process.env.CURRENT_PRICE || '';
+          const originalRaw = process.env.ORIGINAL_PRICE || '';
+
+          const parseNumber = (value) => {
+            const normalized = String(value)
+              .replace(/\s/g, '')
+              .replace(/[€$£]/g, '')
+              .replace(',', '.')
+              .replace(/[^\d.-]/g, '');
+            const number = Number(normalized);
+            return Number.isFinite(number) ? number : null;
+          };
+
+          const explicitMatch = rawDiscount.match(/-?\s*(\d{1,3}(?:[.,]\d+)?)/);
+          let discount = explicitMatch
+            ? Number(explicitMatch[1].replace(',', '.'))
+            : null;
+
+          if (discount === null) {
+            const current = parseNumber(currentRaw);
+            const original = parseNumber(originalRaw);
+
+            if (
+              current !== null &&
+              original !== null &&
+              original > 0 &&
+              current >= 0 &&
+              current < original
+            ) {
+              discount = ((original - current) / original) * 100;
+            }
+          }
+
+          const eligible = discount !== null && discount >= 25;
+          const normalizedDiscount = discount === null
+            ? ''
+            : `-${Math.round(discount)}%`;
+
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            [
+              `eligible=${eligible}`,
+              `discount_value=${discount === null ? '' : discount.toFixed(2)}`,
+              `normalized_discount=${normalizedDiscount}`,
+              '',
+            ].join('\n')
+          );
+
+          if (eligible) {
+            console.log(`✅ Offre retenue : ${discount.toFixed(2)} % de réduction.`);
+          } else {
+            console.log(
+              `⏭️ Aucune vidéo créée : réduction ${discount === null ? 'introuvable' : discount.toFixed(2) + ' %'}, minimum requis 25 %.`
+            );
+          }
+          NODE
+
       - name: Préparer l'image produit
+        if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -114,6 +187,7 @@ jobs:
           fi
 
       - name: Créer les données du deal
+        if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -129,20 +203,36 @@ jobs:
             shortTitle: '',
             currentPrice: process.env.CURRENT_PRICE || '',
             originalPrice: process.env.ORIGINAL_PRICE || '',
-            discount: process.env.DISCOUNT || '',
+            discount: '${{ steps.eligibility.outputs.normalized_discount }}' || process.env.DISCOUNT || '',
             imageUrl: localImage,
             affiliateUrl: process.env.AFFILIATE_URL || '',
+            telegramUrl: process.env.TELEGRAM_PUBLIC_URL || '',
           };
 
           if (!props.affiliateUrl) {
             throw new Error('AFFILIATE_URL est manquant.');
           }
 
+          if (!props.telegramUrl) {
+            throw new Error('TELEGRAM_PUBLIC_URL est manquant. Ajoute la variable GitHub correspondante.');
+          }
+
           fs.writeFileSync('props.json', JSON.stringify(props, null, 2));
           console.log(props);
           NODE
 
+
+      - name: Générer le QR code Telegram
+        if: steps.eligibility.outputs.eligible == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python generate_qr.py
+          test -s public/telegram-qr.png
+          ls -lh public/telegram-qr.png
+
       - name: Générer les 4 voix
+        if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -163,6 +253,7 @@ jobs:
           ls -lh public/voice_*.mp3
 
       - name: Synchroniser les scènes
+        if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -221,9 +312,11 @@ jobs:
           cat src/timings.js
 
       - name: Générer la légende TikTok
+        if: steps.eligibility.outputs.eligible == 'true'
         run: python generate_caption.py
 
       - name: Générer la vidéo
+        if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -236,6 +329,7 @@ jobs:
             --crf=16
 
       - name: Vérifier la vidéo
+        if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -244,6 +338,7 @@ jobs:
           ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 video_tiktok.mp4
 
       - name: Envoyer la vidéo dans Telegram
+        if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -256,6 +351,7 @@ jobs:
             --form-string "caption=🎬 Vidéo TikTok prête — la légende arrive dans le message suivant."
 
       - name: Envoyer la légende
+        if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
