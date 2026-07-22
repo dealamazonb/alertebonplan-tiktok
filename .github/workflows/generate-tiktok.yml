@@ -16,8 +16,8 @@ on:
         description: "Réduction"
         required: false
       image_url:
-        description: "URL directe de l'image produit"
-        required: true
+        description: "URL de l'image produit"
+        required: false
       affiliate_url:
         description: "Lien affilié Amazon"
         required: true
@@ -62,31 +62,93 @@ jobs:
       - name: Installer la voix française
         run: python -m pip install --upgrade pip edge-tts==7.2.8
 
+      - name: Préparer une image locale fiable
+        shell: bash
+        run: |
+          set -u
+          mkdir -p public
+          rm -f public/product-image.jpg public/product-image.svg
+
+          IMAGE_OK=false
+
+          if [ -n "${IMAGE_URL:-}" ]; then
+            echo "Tentative de téléchargement de l'image produit..."
+
+            if curl \
+              --location \
+              --fail \
+              --silent \
+              --show-error \
+              --max-time 25 \
+              --retry 2 \
+              --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36" \
+              --referer "https://www.amazon.fr/" \
+              --output public/product-image.jpg \
+              "$IMAGE_URL"; then
+
+              MIME_TYPE="$(file --brief --mime-type public/product-image.jpg || true)"
+              echo "Type détecté : ${MIME_TYPE}"
+
+              if [[ "$MIME_TYPE" == image/* ]] && [ -s public/product-image.jpg ]; then
+                IMAGE_OK=true
+              fi
+            fi
+          fi
+
+          if [ "$IMAGE_OK" != true ]; then
+            echo "Image distante inutilisable : création de l'image de secours."
+            rm -f public/product-image.jpg
+
+            cat > public/product-image.svg <<'SVG'
+          <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+            <defs>
+              <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#0b0d12"/>
+                <stop offset="1" stop-color="#222936"/>
+              </linearGradient>
+              <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ff9900"/>
+                <stop offset="1" stop-color="#ffcc33"/>
+              </linearGradient>
+            </defs>
+            <rect width="1080" height="1080" rx="90" fill="url(#bg)"/>
+            <circle cx="540" cy="430" r="230" fill="#111722" stroke="#ff9900" stroke-width="18"/>
+            <path d="M390 430h300l-35 210H425z" fill="none" stroke="url(#accent)" stroke-width="34" stroke-linejoin="round"/>
+            <circle cx="470" cy="690" r="30" fill="#ff9900"/>
+            <circle cx="620" cy="690" r="30" fill="#ff9900"/>
+            <text x="540" y="850" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="72" font-weight="800">BON PLAN AMAZON</text>
+            <text x="540" y="930" text-anchor="middle" fill="#ff9900" font-family="Arial, sans-serif" font-size="48" font-weight="700">AlerteBonPlan</text>
+          </svg>
+          SVG
+          fi
+
+          ls -lh public/product-image.*
+
       - name: Créer les données du deal
         shell: bash
         run: |
           node <<'NODE'
           const fs = require('fs');
 
+          const localImage = fs.existsSync('public/product-image.jpg')
+            ? 'product-image.jpg'
+            : 'product-image.svg';
+
           const props = {
             title: process.env.DEAL_TITLE || 'Bon plan Amazon',
             currentPrice: process.env.CURRENT_PRICE || '',
             originalPrice: process.env.ORIGINAL_PRICE || '',
             discount: process.env.DISCOUNT || '',
-            imageUrl: process.env.IMAGE_URL || '',
+            imageUrl: localImage,
             affiliateUrl: process.env.AFFILIATE_URL || ''
           };
-
-          if (!props.imageUrl) {
-            throw new Error('IMAGE_URL est manquante.');
-          }
 
           if (!props.affiliateUrl) {
             throw new Error('AFFILIATE_URL est manquant.');
           }
 
           fs.writeFileSync('props.json', JSON.stringify(props, null, 2));
-          console.log('Données du deal préparées.');
+          console.log('Données du deal préparées :', props);
           NODE
 
       - name: Générer la voix française
