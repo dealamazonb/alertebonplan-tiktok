@@ -1,4 +1,4 @@
-name: Generate TikTok Video V19
+name: Generate TikTok Video V20
 
 on:
   workflow_dispatch:
@@ -24,6 +24,9 @@ on:
       telegram_url:
         description: "Lien public Telegram, ex. https://t.me/AlerteBonPlan"
         required: false
+      deal_temperature:
+        description: "Température Dealabs éventuelle, ex. 350"
+        required: false
 
   repository_dispatch:
     types:
@@ -42,6 +45,7 @@ jobs:
       IMAGE_URL: ${{ github.event.client_payload.imageUrl || inputs.image_url }}
       AFFILIATE_URL: ${{ github.event.client_payload.affiliateUrl || inputs.affiliate_url }}
       TELEGRAM_PUBLIC_URL: ${{ github.event.client_payload.telegramUrl || vars.TELEGRAM_PUBLIC_URL || inputs.telegram_url }}
+      DEAL_TEMPERATURE: ${{ github.event.client_payload.temperature || github.event.client_payload.dealTemperature || inputs.deal_temperature }}
       TTS_VOICE: fr-FR-HenriNeural
       TTS_RATE: "-5%"
       TTS_PITCH: "-2Hz"
@@ -126,83 +130,155 @@ jobs:
             {
               name: 'Gaming et informatique',
               keywords: [
-                'rtx ', 'geforce', 'radeon', 'ryzen', 'intel core', 'ssd',
-                'nvme', 'disque dur', 'pc gamer', 'ordinateur portable',
-                'laptop', 'ecran gaming', 'moniteur', 'clavier mecanique',
+                'rtx', 'geforce', 'radeon', 'rx 6', 'rx 7', 'rx 8', 'ryzen',
+                'intel core', 'core ultra', 'ssd', 'nvme', 'disque dur',
+                'pc gamer', 'ordinateur portable', 'laptop', 'chromebook',
+                'ecran gaming', 'moniteur', 'clavier mecanique',
                 'souris gaming', 'casque gaming', 'playstation', 'ps5',
                 'xbox', 'nintendo switch', 'steam deck', 'rog ally',
-                'carte graphique', 'processeur', 'ram ddr', 'wifi 7'
+                'legion go', 'carte graphique', 'processeur', 'ram ddr',
+                'ddr4', 'ddr5', 'wifi 6', 'wifi 7', 'routeur', 'nas',
+                'webcam', 'microphone usb', 'elgato', 'logitech g',
+                'corsair', 'steelseries', 'razer', 'hyperx', 'asus rog',
+                'msi gaming', 'gigabyte', 'crucial', 'kingston', 'samsung 990',
+                'wd black', 'western digital'
+              ],
+              patterns: [
+                /\brtx\s*\d{4}\b/,
+                /\brx\s*\d{4}\s*(xt|gre)?\b/,
+                /\bryzen\s*[3579]\s*\d{4,5}[a-z0-9]*\b/,
+                /\bcore\s*(ultra\s*)?[3579]\s*\d{3,5}[a-z0-9-]*\b/,
+                /\b\d+(go|gb|to|tb)\s*(ssd|nvme)\b/
               ]
             },
             {
               name: 'Smartphones et objets connectés',
               keywords: [
                 'iphone', 'samsung galaxy', 'google pixel', 'smartphone',
-                'telephone', 'xiaomi', 'oneplus', 'honor', 'apple watch',
-                'galaxy watch', 'montre connectee', 'airpods', 'ecouteurs',
-                'casque bluetooth', 'enceinte bluetooth', 'tablette', 'ipad'
+                'telephone', 'xiaomi', 'redmi', 'poco', 'oneplus', 'honor',
+                'nothing phone', 'motorola', 'oppo', 'realme', 'apple watch',
+                'galaxy watch', 'pixel watch', 'montre connectee', 'airpods',
+                'buds', 'ecouteurs', 'casque bluetooth', 'enceinte bluetooth',
+                'tablette', 'ipad', 'galaxy tab', 'kindle', 'liseuse',
+                'garmin', 'fitbit', 'anker', 'soundcore'
+              ],
+              patterns: [
+                /\biphone\s*\d{1,2}\b/,
+                /\bgalaxy\s*[asz]\d{1,3}\b/,
+                /\bpixel\s*\d{1,2}[a-z]?\b/
               ]
             },
             {
               name: 'TV, image et audio',
               keywords: [
-                'televiseur', 'smart tv', ' tv ', 'oled', 'qled',
-                'mini led', 'video projecteur', 'videoprojecteur',
-                'barre de son', 'home cinema', 'soundbar'
+                'televiseur', 'smart tv', 'television', 'oled', 'qled',
+                'mini led', 'miniled', 'qd-oled', 'qd mini led',
+                'videoprojecteur', 'video projecteur', 'barre de son',
+                'home cinema', 'soundbar', 'amplificateur', 'enceinte jbl',
+                'enceinte bose', 'sony bravia', 'samsung neo qled',
+                'lg oled', 'tcl', 'hisense', 'philips ambilight'
+              ],
+              patterns: [
+                /\b\d{2,3}\s*(pouces|")\b/,
+                /\b(4k|8k)\b.*\b(tv|oled|qled|led)\b/
               ]
             },
             {
               name: 'Maison et électroménager',
               keywords: [
                 'air fryer', 'friteuse sans huile', 'robot aspirateur',
-                'aspirateur balai', 'aspirateur robot', 'dyson', 'roborock',
-                'dreame', 'ecovacs', 'ninja', 'kitchenaid', 'thermomix',
-                'machine a cafe', 'cafe grain', 'delonghi', 'philips airfryer',
-                'robot cuisine', 'lave linge', 'seche linge', 'lave vaisselle',
-                'refrigerateur', 'congelateur', 'climatiseur', 'ventilateur'
-              ]
+                'aspirateur balai', 'aspirateur robot', 'aspirateur laveur',
+                'dyson', 'roborock', 'dreame', 'ecovacs', 'irobot',
+                'ninja', 'kitchenaid', 'thermomix', 'moulinex', 'magimix',
+                'machine a cafe', 'cafe grain', 'delonghi', 'nespresso',
+                'philips airfryer', 'robot cuisine', 'cookeo',
+                'lave linge', 'seche linge', 'lave vaisselle',
+                'refrigerateur', 'congelateur', 'climatiseur',
+                'ventilateur', 'purificateur d air', 'humidificateur',
+                'centrale vapeur', 'defroisseur', 'fer a repasser'
+              ],
+              patterns: []
             },
             {
               name: 'Bricolage et jardin',
               keywords: [
-                'bosch professional', 'makita', 'dewalt', 'milwaukee',
-                'parkside', 'perceuse', 'visseuse', 'meuleuse',
-                'tondeuse', 'tronconneuse', 'nettoyeur haute pression',
-                'karcher', 'barbecue', 'plancha'
-              ]
+                'bosch professional', 'bosch vert', 'makita', 'dewalt',
+                'milwaukee', 'parkside', 'einhell', 'ryobi', 'facom',
+                'perceuse', 'visseuse', 'perforateur', 'meuleuse',
+                'scie circulaire', 'scie sauteuse', 'tondeuse',
+                'tronconneuse', 'taille haie', 'nettoyeur haute pression',
+                'karcher', 'barbecue', 'plancha', 'weber', 'campingaz'
+              ],
+              patterns: []
             },
             {
               name: 'Jouets et culture populaire',
               keywords: [
                 'lego', 'playmobil', 'pokemon', 'nintendo', 'marvel',
-                'star wars', 'harry potter', 'funko pop', 'jeu de societe'
+                'star wars', 'harry potter', 'funko pop', 'jeu de societe',
+                'hot wheels', 'barbie', 'nerf', 'disney', 'playstation 5',
+                'manette dualsense', 'carte pokemon'
+              ],
+              patterns: [
+                /\blego\s*\d{4,6}\b/
               ]
             },
             {
               name: 'Beauté et premium',
               keywords: [
-                'parfum', 'coffret parfum', 'lisseur', 'seche cheveux',
-                'oral-b', 'brosse a dents electrique', 'tondeuse barbe',
-                'rasoir electrique'
-              ]
+                'parfum', 'eau de parfum', 'coffret parfum', 'lisseur',
+                'seche cheveux', 'airwrap', 'oral-b', 'brosse a dents electrique',
+                'tondeuse barbe', 'rasoir electrique', 'philips oneblade',
+                'braun series', 'ghd', 'babyliss', 'remington'
+              ],
+              patterns: []
             },
             {
               name: 'Auto et mobilité',
               keywords: [
                 'dashcam', 'carplay', 'android auto', 'chargeur voiture',
                 'compresseur voiture', 'trottinette electrique',
-                'velo electrique'
-              ]
+                'velo electrique', 'gps garmin', 'gps tomtom',
+                'batterie externe', 'booster batterie', 'camera recul'
+              ],
+              patterns: []
             }
+          ];
+
+          const popularBrands = [
+            'apple', 'samsung', 'sony', 'lg', 'philips', 'jbl', 'bose',
+            'logitech', 'corsair', 'razer', 'steelseries', 'asus', 'msi',
+            'gigabyte', 'lenovo', 'hp', 'dell', 'acer', 'tcl', 'hisense',
+            'xiaomi', 'dyson', 'ninja', 'roborock', 'dreame', 'delonghi',
+            'karcher', 'bosch', 'makita', 'dewalt', 'milwaukee', 'lego',
+            'nintendo', 'playstation', 'xbox', 'garmin', 'anker', 'oral-b',
+            'braun', 'ghd', 'kitchenaid', 'moulinex', 'weber'
           ];
 
           const matchedCategories = categories
             .filter((category) =>
-              category.keywords.some((keyword) => normalizedTitle.includes(keyword))
+              category.keywords.some((keyword) => normalizedTitle.includes(keyword)) ||
+              category.patterns.some((pattern) => pattern.test(normalizedTitle))
             )
             .map((category) => category.name);
 
-          const isInteresting = matchedCategories.length > 0;
+          const matchedBrands = popularBrands.filter((brand) =>
+            normalizedTitle.includes(brand)
+          );
+
+          const isInteresting =
+            matchedCategories.length > 0 ||
+            matchedBrands.length > 0;
+
+          const rawTemperature = String(process.env.DEAL_TEMPERATURE || '');
+          const temperatureMatch = rawTemperature.match(/-?\d+(?:[.,]\d+)?/);
+          const dealTemperature = temperatureMatch
+            ? Number(temperatureMatch[0].replace(',', '.'))
+            : null;
+
+          const isVeryHotDeal =
+            dealTemperature !== null &&
+            dealTemperature >= 300;
 
           let eligible = false;
           let reason = '';
@@ -213,11 +289,15 @@ jobs:
            *   même avec une petite réduction ou un pourcentage absent ;
            * - article non prioritaire : vidéo uniquement à partir de 40 %.
            */
-          if (isInteresting) {
+          if (isVeryHotDeal) {
             eligible = true;
+            reason = `offre Dealabs très chaude (${dealTemperature.toFixed(0)}°)`;
+          } else if (isInteresting) {
+            eligible = true;
+            const labels = [...matchedCategories, ...matchedBrands.map((brand) => `marque ${brand}`)];
             reason = discount === null
-              ? `article populaire (${matchedCategories.join(', ')})`
-              : `article populaire (${matchedCategories.join(', ')}) avec ${discount.toFixed(2)} % de réduction`;
+              ? `article populaire (${labels.join(', ')})`
+              : `article populaire (${labels.join(', ')}) avec ${discount.toFixed(2)} % de réduction`;
           } else if (discount !== null && discount >= 40) {
             eligible = true;
             reason = `article non prioritaire mais forte réduction de ${discount.toFixed(2)} %`;
@@ -239,16 +319,24 @@ jobs:
               `normalized_discount=${normalizedDiscount}`,
               `interesting=${isInteresting}`,
               `category=${matchedCategories.join(' / ')}`,
+              `brands=${matchedBrands.join(' / ')}`,
+              `deal_temperature=${dealTemperature === null ? '' : dealTemperature}`,
+              `very_hot=${isVeryHotDeal}`,
               '',
             ].join('\n')
           );
 
           console.log(`Produit : ${title}`);
           console.log(`Réduction : ${discount === null ? 'introuvable' : discount.toFixed(2) + ' %'}`);
-          console.log(`Catégorie intéressante : ${isInteresting ? 'oui' : 'non'}`);
+          console.log(`Article intéressant : ${isInteresting ? 'oui' : 'non'}`);
+          console.log(`Température Dealabs : ${dealTemperature === null ? 'non transmise' : dealTemperature + '°'}`);
 
           if (matchedCategories.length > 0) {
             console.log(`Catégorie détectée : ${matchedCategories.join(' / ')}`);
+          }
+
+          if (matchedBrands.length > 0) {
+            console.log(`Marque populaire détectée : ${matchedBrands.join(' / ')}`);
           }
 
           if (eligible) {
