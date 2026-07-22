@@ -136,6 +136,107 @@ const Final = ({theme}) => {
   </AbsoluteFill>;
 };
 
+
+const TelegramBadge = ({telegramUrl}) => {
+  const f = useCurrentFrame();
+  const {fps} = useVideoConfig();
+
+  const entrance = spring({
+    frame: f - 8,
+    fps,
+    config: {damping: 13, stiffness: 145, mass: 0.75},
+  });
+
+  const pulse = interpolate(
+    Math.sin(f / 9),
+    [-1, 1],
+    [0.98, 1.035],
+  );
+
+  const readableLink = clean(telegramUrl)
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/$/, '');
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        zIndex: 50,
+        right: 34,
+        bottom: 38,
+        width: 292,
+        padding: '18px 18px 16px',
+        borderRadius: 34,
+        background: 'linear-gradient(145deg,rgba(4,11,24,.94),rgba(12,32,55,.96))',
+        border: '3px solid rgba(41,182,246,.75)',
+        boxShadow: '0 24px 70px rgba(0,0,0,.58),0 0 35px rgba(41,182,246,.28)',
+        fontFamily: 'Arial',
+        textAlign: 'center',
+        opacity: entrance,
+        transform: `scale(${entrance * pulse})`,
+      }}
+    >
+      <div
+        style={{
+          color: '#58C7FF',
+          fontSize: 25,
+          fontWeight: 1000,
+          letterSpacing: 1.5,
+          marginBottom: 11,
+        }}
+      >
+        📲 REJOINS LE TELEGRAM
+      </div>
+
+      <div
+        style={{
+          width: 168,
+          height: 168,
+          margin: '0 auto',
+          padding: 8,
+          borderRadius: 22,
+          background: '#fff',
+          boxShadow: '0 12px 32px rgba(0,0,0,.38)',
+        }}
+      >
+        <Img
+          src={staticFile('telegram-qr.png')}
+          style={{width: '100%', height: '100%', objectFit: 'contain'}}
+        />
+      </div>
+
+      <div
+        style={{
+          marginTop: 11,
+          color: '#fff',
+          fontSize: 22,
+          lineHeight: 1.05,
+          fontWeight: 900,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {readableLink || 't.me/AlerteBonPlan'}
+      </div>
+
+      <div
+        style={{
+          marginTop: 7,
+          padding: '8px 12px',
+          borderRadius: 999,
+          color: '#06111E',
+          background: '#58C7FF',
+          fontSize: 19,
+          fontWeight: 1000,
+        }}
+      >
+        SCANNE POUR LES PROMOS
+      </div>
+    </div>
+  );
+};
+
 export const DealVideo = ({
   title,
   shortTitle: generatedShortTitle,
@@ -143,6 +244,7 @@ export const DealVideo = ({
   originalPrice,
   discount,
   imageUrl,
+  telegramUrl,
 }) => {
   const displayTitle = generatedShortTitle || shortTitle(title);
   const theme = selectTheme(title, discount);
@@ -151,6 +253,7 @@ export const DealVideo = ({
   return (
     <AbsoluteFill>
       <Background theme={theme}/>
+      <TelegramBadge telegramUrl={telegramUrl}/>
 
       <Sequence from={INTRO_FROM} durationInFrames={INTRO_FRAMES}>
         <Html5Audio src={staticFile('voice_intro.mp3')} volume={0.96}/>
