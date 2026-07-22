@@ -16,6 +16,7 @@ def main() -> None:
     original = clean(data.get("originalPrice"))
     discount = clean(data.get("discount"))
     affiliate_url = clean(data.get("affiliateUrl"))
+    telegram_url = clean(data.get("telegramUrl"))
 
     lines = [f"🔥 {title}"]
 
@@ -28,7 +29,10 @@ def main() -> None:
         lines.append(f"📉 {discount}")
 
     if affiliate_url:
-        lines.extend(["", f"👉 {affiliate_url}"])
+        lines.extend(["", f"👉 Produit : {affiliate_url}"])
+
+    if telegram_url:
+        lines.append(f"📲 Telegram : {telegram_url}")
 
     lines.extend([
         "",
