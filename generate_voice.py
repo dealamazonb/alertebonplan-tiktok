@@ -10,13 +10,47 @@ def clean(value: str) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
+def clean_product_title(value: str, max_length: int = 62) -> str:
+    title = clean(value)
+
+    suffix_patterns = [
+        r"\s*\(\s*vendeur tiers\s*\)\s*$",
+        r"\s*\(\s*expédié par amazon\s*\)\s*$",
+        r"\s*\(\s*vendu par amazon\s*\)\s*$",
+        r"\s*\(\s*livraison prime\s*\)\s*$",
+        r"\s*\(\s*stock limité\s*\)\s*$",
+        r"\s*\(\s*offre prime\s*\)\s*$",
+        r"\s*[-–—]\s*vendeur tiers\s*$",
+        r"\s*[-–—]\s*expédié par amazon\s*$",
+        r"\s*[-–—]\s*vendu par amazon\s*$",
+        r"\s*\[(?:vendeur tiers|expédié par amazon|vendu par amazon|prime)\]\s*$",
+    ]
+
+    for pattern in suffix_patterns:
+        title = re.sub(pattern, "", title, flags=re.IGNORECASE).strip()
+
+    # Retire les détails après des séparateurs lorsqu'ils sont trop longs.
+    if len(title) > max_length:
+        for separator in (" - ", " – ", " — ", ", avec ", ", pour ", " | "):
+            head = title.split(separator, 1)[0].strip()
+            if 18 <= len(head) <= max_length:
+                title = head
+                break
+
+    if len(title) > max_length:
+        shortened = title[:max_length].rsplit(" ", 1)[0].strip()
+        title = (shortened or title[:max_length]).rstrip(" ,;:-")
+
+    return title or "ce bon plan Amazon"
+
+
 def percent(value: str) -> int:
     match = re.search(r"(\d{1,3})", str(value or ""))
     return int(match.group(1)) if match else 0
 
 
 def build_voice_text(data: dict) -> str:
-    title = clean(data.get("title")) or "ce bon plan Amazon"
+    title = clean_product_title(data.get("title"), max_length=62)
     current_price = clean(data.get("currentPrice"))
     original_price = clean(data.get("originalPrice"))
     discount = clean(data.get("discount"))
@@ -30,9 +64,7 @@ def build_voice_text(data: dict) -> str:
         intro = "Alerte bon plan. Amazon baisse enfin le prix."
     else:
         intro = "Alerte bon plan. Une promotion à ne pas manquer."
-
-    # Le titre est volontairement raccourci pour éviter une voix trop longue.
-    short_title = title[:105].rsplit(" ", 1)[0] if len(title) > 105 else title
+    short_title = title
 
     parts = [intro, short_title + "."]
 
@@ -60,7 +92,7 @@ async def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
 
     voice = os.getenv("TTS_VOICE", "fr-FR-HenriNeural")
-    rate = os.getenv("TTS_RATE", "+18%")
+    rate = os.getenv("TTS_RATE", "-5%")
     pitch = os.getenv("TTS_PITCH", "-2Hz")
 
     communicate = edge_tts.Communicate(
