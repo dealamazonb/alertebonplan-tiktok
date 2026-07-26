@@ -1,4 +1,4 @@
-name: Generate TikTok Video V20
+name: Generate TikTok + Facebook Reel V21
 
 on:
   workflow_dispatch:
@@ -35,7 +35,7 @@ on:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     env:
       DEAL_TITLE: ${{ github.event.client_payload.title || inputs.title }}
@@ -46,6 +46,7 @@ jobs:
       AFFILIATE_URL: ${{ github.event.client_payload.affiliateUrl || inputs.affiliate_url }}
       TELEGRAM_PUBLIC_URL: ${{ github.event.client_payload.telegramUrl || vars.TELEGRAM_PUBLIC_URL || inputs.telegram_url }}
       DEAL_TEMPERATURE: ${{ github.event.client_payload.temperature || github.event.client_payload.dealTemperature || inputs.deal_temperature }}
+
       TTS_VOICE: fr-FR-HenriNeural
       TTS_RATE: "-5%"
       TTS_PITCH: "-2Hz"
@@ -58,23 +59,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
 
       - name: Installer Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
 
       - name: Installer les dépendances
         shell: bash
         run: |
           set -euo pipefail
+
           npm install --no-audit --no-fund
+
           python -m pip install --upgrade pip
-          python -m pip install edge-tts==7.2.8 "qrcode[pil]==8.2"
+          python -m pip install \
+            edge-tts==7.2.8 \
+            "qrcode[pil]==8.2"
+
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-
-
 
       - name: Sélectionner les offres intéressantes
         id: eligibility
@@ -86,6 +92,7 @@ jobs:
           const fs = require('fs');
 
           const title = String(process.env.DEAL_TITLE || '').trim();
+
           const normalizedTitle = title
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
@@ -103,10 +110,16 @@ jobs:
               .replace(/[^\d.-]/g, '');
 
             const number = Number(normalized);
-            return Number.isFinite(number) ? number : null;
+
+            return Number.isFinite(number)
+              ? number
+              : null;
           };
 
-          const explicitMatch = rawDiscount.match(/-?\s*(\d{1,3}(?:[.,]\d+)?)/);
+          const explicitMatch = rawDiscount.match(
+            /-?\s*(\d{1,3}(?:[.,]\d+)?)/
+          );
+
           let discount = explicitMatch
             ? Number(explicitMatch[1].replace(',', '.'))
             : null;
@@ -122,7 +135,8 @@ jobs:
               current >= 0 &&
               current < original
             ) {
-              discount = ((original - current) / original) * 100;
+              discount =
+                ((original - current) / original) * 100;
             }
           }
 
@@ -130,18 +144,59 @@ jobs:
             {
               name: 'Gaming et informatique',
               keywords: [
-                'rtx', 'geforce', 'radeon', 'rx 6', 'rx 7', 'rx 8', 'ryzen',
-                'intel core', 'core ultra', 'ssd', 'nvme', 'disque dur',
-                'pc gamer', 'ordinateur portable', 'laptop', 'chromebook',
-                'ecran gaming', 'moniteur', 'clavier mecanique',
-                'souris gaming', 'casque gaming', 'playstation', 'ps5',
-                'xbox', 'nintendo switch', 'steam deck', 'rog ally',
-                'legion go', 'carte graphique', 'processeur', 'ram ddr',
-                'ddr4', 'ddr5', 'wifi 6', 'wifi 7', 'routeur', 'nas',
-                'webcam', 'microphone usb', 'elgato', 'logitech g',
-                'corsair', 'steelseries', 'razer', 'hyperx', 'asus rog',
-                'msi gaming', 'gigabyte', 'crucial', 'kingston', 'samsung 990',
-                'wd black', 'western digital'
+                'rtx',
+                'geforce',
+                'radeon',
+                'rx 6',
+                'rx 7',
+                'rx 8',
+                'ryzen',
+                'intel core',
+                'core ultra',
+                'ssd',
+                'nvme',
+                'disque dur',
+                'pc gamer',
+                'ordinateur portable',
+                'laptop',
+                'chromebook',
+                'ecran gaming',
+                'moniteur',
+                'clavier mecanique',
+                'souris gaming',
+                'casque gaming',
+                'playstation',
+                'ps5',
+                'xbox',
+                'nintendo switch',
+                'steam deck',
+                'rog ally',
+                'legion go',
+                'carte graphique',
+                'processeur',
+                'ram ddr',
+                'ddr4',
+                'ddr5',
+                'wifi 6',
+                'wifi 7',
+                'routeur',
+                'nas',
+                'webcam',
+                'microphone usb',
+                'elgato',
+                'logitech g',
+                'corsair',
+                'steelseries',
+                'razer',
+                'hyperx',
+                'asus rog',
+                'msi gaming',
+                'gigabyte',
+                'crucial',
+                'kingston',
+                'samsung 990',
+                'wd black',
+                'western digital'
               ],
               patterns: [
                 /\brtx\s*\d{4}\b/,
@@ -154,13 +209,38 @@ jobs:
             {
               name: 'Smartphones et objets connectés',
               keywords: [
-                'iphone', 'samsung galaxy', 'google pixel', 'smartphone',
-                'telephone', 'xiaomi', 'redmi', 'poco', 'oneplus', 'honor',
-                'nothing phone', 'motorola', 'oppo', 'realme', 'apple watch',
-                'galaxy watch', 'pixel watch', 'montre connectee', 'airpods',
-                'buds', 'ecouteurs', 'casque bluetooth', 'enceinte bluetooth',
-                'tablette', 'ipad', 'galaxy tab', 'kindle', 'liseuse',
-                'garmin', 'fitbit', 'anker', 'soundcore'
+                'iphone',
+                'samsung galaxy',
+                'google pixel',
+                'smartphone',
+                'telephone',
+                'xiaomi',
+                'redmi',
+                'poco',
+                'oneplus',
+                'honor',
+                'nothing phone',
+                'motorola',
+                'oppo',
+                'realme',
+                'apple watch',
+                'galaxy watch',
+                'pixel watch',
+                'montre connectee',
+                'airpods',
+                'buds',
+                'ecouteurs',
+                'casque bluetooth',
+                'enceinte bluetooth',
+                'tablette',
+                'ipad',
+                'galaxy tab',
+                'kindle',
+                'liseuse',
+                'garmin',
+                'fitbit',
+                'anker',
+                'soundcore'
               ],
               patterns: [
                 /\biphone\s*\d{1,2}\b/,
@@ -171,12 +251,29 @@ jobs:
             {
               name: 'TV, image et audio',
               keywords: [
-                'televiseur', 'smart tv', 'television', 'oled', 'qled',
-                'mini led', 'miniled', 'qd-oled', 'qd mini led',
-                'videoprojecteur', 'video projecteur', 'barre de son',
-                'home cinema', 'soundbar', 'amplificateur', 'enceinte jbl',
-                'enceinte bose', 'sony bravia', 'samsung neo qled',
-                'lg oled', 'tcl', 'hisense', 'philips ambilight'
+                'televiseur',
+                'smart tv',
+                'television',
+                'oled',
+                'qled',
+                'mini led',
+                'miniled',
+                'qd-oled',
+                'qd mini led',
+                'videoprojecteur',
+                'video projecteur',
+                'barre de son',
+                'home cinema',
+                'soundbar',
+                'amplificateur',
+                'enceinte jbl',
+                'enceinte bose',
+                'sony bravia',
+                'samsung neo qled',
+                'lg oled',
+                'tcl',
+                'hisense',
+                'philips ambilight'
               ],
               patterns: [
                 /\b\d{2,3}\s*(pouces|")\b/,
@@ -186,38 +283,93 @@ jobs:
             {
               name: 'Maison et électroménager',
               keywords: [
-                'air fryer', 'friteuse sans huile', 'robot aspirateur',
-                'aspirateur balai', 'aspirateur robot', 'aspirateur laveur',
-                'dyson', 'roborock', 'dreame', 'ecovacs', 'irobot',
-                'ninja', 'kitchenaid', 'thermomix', 'moulinex', 'magimix',
-                'machine a cafe', 'cafe grain', 'delonghi', 'nespresso',
-                'philips airfryer', 'robot cuisine', 'cookeo',
-                'lave linge', 'seche linge', 'lave vaisselle',
-                'refrigerateur', 'congelateur', 'climatiseur',
-                'ventilateur', 'purificateur d air', 'humidificateur',
-                'centrale vapeur', 'defroisseur', 'fer a repasser'
+                'air fryer',
+                'friteuse sans huile',
+                'robot aspirateur',
+                'aspirateur balai',
+                'aspirateur robot',
+                'aspirateur laveur',
+                'dyson',
+                'roborock',
+                'dreame',
+                'ecovacs',
+                'irobot',
+                'ninja',
+                'kitchenaid',
+                'thermomix',
+                'moulinex',
+                'magimix',
+                'machine a cafe',
+                'cafe grain',
+                'delonghi',
+                'nespresso',
+                'philips airfryer',
+                'robot cuisine',
+                'cookeo',
+                'lave linge',
+                'seche linge',
+                'lave vaisselle',
+                'refrigerateur',
+                'congelateur',
+                'climatiseur',
+                'ventilateur',
+                'purificateur d air',
+                'humidificateur',
+                'centrale vapeur',
+                'defroisseur',
+                'fer a repasser'
               ],
               patterns: []
             },
             {
               name: 'Bricolage et jardin',
               keywords: [
-                'bosch professional', 'bosch vert', 'makita', 'dewalt',
-                'milwaukee', 'parkside', 'einhell', 'ryobi', 'facom',
-                'perceuse', 'visseuse', 'perforateur', 'meuleuse',
-                'scie circulaire', 'scie sauteuse', 'tondeuse',
-                'tronconneuse', 'taille haie', 'nettoyeur haute pression',
-                'karcher', 'barbecue', 'plancha', 'weber', 'campingaz'
+                'bosch professional',
+                'bosch vert',
+                'makita',
+                'dewalt',
+                'milwaukee',
+                'parkside',
+                'einhell',
+                'ryobi',
+                'facom',
+                'perceuse',
+                'visseuse',
+                'perforateur',
+                'meuleuse',
+                'scie circulaire',
+                'scie sauteuse',
+                'tondeuse',
+                'tronconneuse',
+                'taille haie',
+                'nettoyeur haute pression',
+                'karcher',
+                'barbecue',
+                'plancha',
+                'weber',
+                'campingaz'
               ],
               patterns: []
             },
             {
               name: 'Jouets et culture populaire',
               keywords: [
-                'lego', 'playmobil', 'pokemon', 'nintendo', 'marvel',
-                'star wars', 'harry potter', 'funko pop', 'jeu de societe',
-                'hot wheels', 'barbie', 'nerf', 'disney', 'playstation 5',
-                'manette dualsense', 'carte pokemon'
+                'lego',
+                'playmobil',
+                'pokemon',
+                'nintendo',
+                'marvel',
+                'star wars',
+                'harry potter',
+                'funko pop',
+                'jeu de societe',
+                'hot wheels',
+                'barbie',
+                'nerf',
+                'disney',
+                'playstation 5',
+                'manette dualsense',
+                'carte pokemon'
               ],
               patterns: [
                 /\blego\s*\d{4,6}\b/
@@ -226,54 +378,124 @@ jobs:
             {
               name: 'Beauté et premium',
               keywords: [
-                'parfum', 'eau de parfum', 'coffret parfum', 'lisseur',
-                'seche cheveux', 'airwrap', 'oral-b', 'brosse a dents electrique',
-                'tondeuse barbe', 'rasoir electrique', 'philips oneblade',
-                'braun series', 'ghd', 'babyliss', 'remington'
+                'parfum',
+                'eau de parfum',
+                'coffret parfum',
+                'lisseur',
+                'seche cheveux',
+                'airwrap',
+                'oral-b',
+                'brosse a dents electrique',
+                'tondeuse barbe',
+                'rasoir electrique',
+                'philips oneblade',
+                'braun series',
+                'ghd',
+                'babyliss',
+                'remington'
               ],
               patterns: []
             },
             {
               name: 'Auto et mobilité',
               keywords: [
-                'dashcam', 'carplay', 'android auto', 'chargeur voiture',
-                'compresseur voiture', 'trottinette electrique',
-                'velo electrique', 'gps garmin', 'gps tomtom',
-                'batterie externe', 'booster batterie', 'camera recul'
+                'dashcam',
+                'carplay',
+                'android auto',
+                'chargeur voiture',
+                'compresseur voiture',
+                'trottinette electrique',
+                'velo electrique',
+                'gps garmin',
+                'gps tomtom',
+                'batterie externe',
+                'booster batterie',
+                'camera recul'
               ],
               patterns: []
             }
           ];
 
           const popularBrands = [
-            'apple', 'samsung', 'sony', 'lg', 'philips', 'jbl', 'bose',
-            'logitech', 'corsair', 'razer', 'steelseries', 'asus', 'msi',
-            'gigabyte', 'lenovo', 'hp', 'dell', 'acer', 'tcl', 'hisense',
-            'xiaomi', 'dyson', 'ninja', 'roborock', 'dreame', 'delonghi',
-            'karcher', 'bosch', 'makita', 'dewalt', 'milwaukee', 'lego',
-            'nintendo', 'playstation', 'xbox', 'garmin', 'anker', 'oral-b',
-            'braun', 'ghd', 'kitchenaid', 'moulinex', 'weber'
+            'apple',
+            'samsung',
+            'sony',
+            'lg',
+            'philips',
+            'jbl',
+            'bose',
+            'logitech',
+            'corsair',
+            'razer',
+            'steelseries',
+            'asus',
+            'msi',
+            'gigabyte',
+            'lenovo',
+            'hp',
+            'dell',
+            'acer',
+            'tcl',
+            'hisense',
+            'xiaomi',
+            'dyson',
+            'ninja',
+            'roborock',
+            'dreame',
+            'delonghi',
+            'karcher',
+            'bosch',
+            'makita',
+            'dewalt',
+            'milwaukee',
+            'lego',
+            'nintendo',
+            'playstation',
+            'xbox',
+            'garmin',
+            'anker',
+            'oral-b',
+            'braun',
+            'ghd',
+            'kitchenaid',
+            'moulinex',
+            'weber'
           ];
 
           const matchedCategories = categories
             .filter((category) =>
-              category.keywords.some((keyword) => normalizedTitle.includes(keyword)) ||
-              category.patterns.some((pattern) => pattern.test(normalizedTitle))
+              category.keywords.some(
+                (keyword) =>
+                  normalizedTitle.includes(keyword)
+              ) ||
+              category.patterns.some(
+                (pattern) =>
+                  pattern.test(normalizedTitle)
+              )
             )
             .map((category) => category.name);
 
-          const matchedBrands = popularBrands.filter((brand) =>
-            normalizedTitle.includes(brand)
+          const matchedBrands = popularBrands.filter(
+            (brand) =>
+              normalizedTitle.includes(brand)
           );
 
           const isInteresting =
             matchedCategories.length > 0 ||
             matchedBrands.length > 0;
 
-          const rawTemperature = String(process.env.DEAL_TEMPERATURE || '');
-          const temperatureMatch = rawTemperature.match(/-?\d+(?:[.,]\d+)?/);
+          const rawTemperature = String(
+            process.env.DEAL_TEMPERATURE || ''
+          );
+
+          const temperatureMatch = rawTemperature.match(
+            /-?\d+(?:[.,]\d+)?/
+          );
+
           const dealTemperature = temperatureMatch
-            ? Number(temperatureMatch[0].replace(',', '.'))
+            ? Number(
+                temperatureMatch[0].replace(',', '.')
+              )
             : null;
 
           const isVeryHotDeal =
@@ -284,65 +506,152 @@ jobs:
           let reason = '';
 
           /*
-           * Nouvelles règles :
-           * - article dans une catégorie intéressante : vidéo à chaque fois,
-           *   même avec une petite réduction ou un pourcentage absent ;
-           * - article non prioritaire : vidéo uniquement à partir de 40 %.
+           * Règles :
+           *
+           * - Offre Dealabs à 300° ou plus :
+           *   vidéo autorisée.
+           *
+           * - Article appartenant à une catégorie
+           *   intéressante ou à une marque populaire :
+           *   vidéo autorisée.
+           *
+           * - Article non prioritaire :
+           *   vidéo uniquement à partir de 40 %.
            */
+
           if (isVeryHotDeal) {
             eligible = true;
-            reason = `offre Dealabs très chaude (${dealTemperature.toFixed(0)}°)`;
+            reason =
+              `offre Dealabs très chaude ` +
+              `(${dealTemperature.toFixed(0)}°)`;
           } else if (isInteresting) {
             eligible = true;
-            const labels = [...matchedCategories, ...matchedBrands.map((brand) => `marque ${brand}`)];
+
+            const labels = [
+              ...matchedCategories,
+              ...matchedBrands.map(
+                (brand) => `marque ${brand}`
+              )
+            ];
+
             reason = discount === null
               ? `article populaire (${labels.join(', ')})`
-              : `article populaire (${labels.join(', ')}) avec ${discount.toFixed(2)} % de réduction`;
-          } else if (discount !== null && discount >= 40) {
+              : (
+                  `article populaire ` +
+                  `(${labels.join(', ')}) ` +
+                  `avec ${discount.toFixed(2)} % ` +
+                  `de réduction`
+                );
+          } else if (
+            discount !== null &&
+            discount >= 40
+          ) {
             eligible = true;
-            reason = `article non prioritaire mais forte réduction de ${discount.toFixed(2)} %`;
+
+            reason =
+              `article non prioritaire mais forte ` +
+              `réduction de ${discount.toFixed(2)} %`;
           } else if (discount === null) {
-            reason = 'article non prioritaire et pourcentage de réduction introuvable';
+            reason =
+              `article non prioritaire et ` +
+              `pourcentage de réduction introuvable`;
           } else {
-            reason = `article non prioritaire avec seulement ${discount.toFixed(2)} % de réduction`;
+            reason =
+              `article non prioritaire avec seulement ` +
+              `${discount.toFixed(2)} % de réduction`;
           }
 
-          const normalizedDiscount = discount === null
-            ? ''
-            : `-${Math.round(discount)}%`;
+          const normalizedDiscount =
+            discount === null
+              ? ''
+              : `-${Math.round(discount)}%`;
 
           fs.appendFileSync(
             process.env.GITHUB_OUTPUT,
             [
               `eligible=${eligible}`,
-              `discount_value=${discount === null ? '' : discount.toFixed(2)}`,
-              `normalized_discount=${normalizedDiscount}`,
+              (
+                `discount_value=` +
+                `${
+                  discount === null
+                    ? ''
+                    : discount.toFixed(2)
+                }`
+              ),
+              (
+                `normalized_discount=` +
+                `${normalizedDiscount}`
+              ),
               `interesting=${isInteresting}`,
-              `category=${matchedCategories.join(' / ')}`,
-              `brands=${matchedBrands.join(' / ')}`,
-              `deal_temperature=${dealTemperature === null ? '' : dealTemperature}`,
+              (
+                `category=` +
+                `${matchedCategories.join(' / ')}`
+              ),
+              (
+                `brands=` +
+                `${matchedBrands.join(' / ')}`
+              ),
+              (
+                `deal_temperature=` +
+                `${
+                  dealTemperature === null
+                    ? ''
+                    : dealTemperature
+                }`
+              ),
               `very_hot=${isVeryHotDeal}`,
-              '',
+              ''
             ].join('\n')
           );
 
           console.log(`Produit : ${title}`);
-          console.log(`Réduction : ${discount === null ? 'introuvable' : discount.toFixed(2) + ' %'}`);
-          console.log(`Article intéressant : ${isInteresting ? 'oui' : 'non'}`);
-          console.log(`Température Dealabs : ${dealTemperature === null ? 'non transmise' : dealTemperature + '°'}`);
+
+          console.log(
+            `Réduction : ${
+              discount === null
+                ? 'introuvable'
+                : `${discount.toFixed(2)} %`
+            }`
+          );
+
+          console.log(
+            `Article intéressant : ${
+              isInteresting
+                ? 'oui'
+                : 'non'
+            }`
+          );
+
+          console.log(
+            `Température Dealabs : ${
+              dealTemperature === null
+                ? 'non transmise'
+                : `${dealTemperature}°`
+            }`
+          );
 
           if (matchedCategories.length > 0) {
-            console.log(`Catégorie détectée : ${matchedCategories.join(' / ')}`);
+            console.log(
+              `Catégorie détectée : ` +
+              `${matchedCategories.join(' / ')}`
+            );
           }
 
           if (matchedBrands.length > 0) {
-            console.log(`Marque populaire détectée : ${matchedBrands.join(' / ')}`);
+            console.log(
+              `Marque populaire détectée : ` +
+              `${matchedBrands.join(' / ')}`
+            );
           }
 
           if (eligible) {
-            console.log(`✅ Vidéo autorisée : ${reason}.`);
+            console.log(
+              `✅ Vidéo autorisée : ${reason}.`
+            );
           } else {
-            console.log(`⏭️ Vidéo ignorée : ${reason}.`);
+            console.log(
+              `⏭️ Vidéo ignorée : ${reason}.`
+            );
           }
           NODE
 
@@ -351,8 +660,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           mkdir -p public
-          rm -f public/product-image.jpg public/product-image.svg
+
+          rm -f \
+            public/product-image.jpg \
+            public/product-image.svg
 
           IMAGE_OK=false
 
@@ -367,10 +680,20 @@ jobs:
               --user-agent "Mozilla/5.0" \
               --referer "https://www.amazon.fr/" \
               --output public/product-image.jpg \
-              "$IMAGE_URL"; then
+              "$IMAGE_URL"
+            then
+              MIME_TYPE="$(
+                file \
+                  --brief \
+                  --mime-type \
+                  public/product-image.jpg \
+                  || true
+              )"
 
-              MIME_TYPE="$(file --brief --mime-type public/product-image.jpg || true)"
-              if [[ "$MIME_TYPE" == image/* ]] && [ -s public/product-image.jpg ]; then
+              if \
+                [[ "$MIME_TYPE" == image/* ]] &&
+                [ -s public/product-image.jpg ]
+              then
                 IMAGE_OK=true
               fi
             fi
@@ -378,20 +701,82 @@ jobs:
 
           if [ "$IMAGE_OK" != true ]; then
             rm -f public/product-image.jpg
+
             cat > public/product-image.svg <<'SVG'
-          <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="1080"
+            height="1080"
+            viewBox="0 0 1080 1080"
+          >
             <defs>
-              <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#0b0d12"/>
-                <stop offset="1" stop-color="#222936"/>
+              <linearGradient
+                id="bg"
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="1"
+              >
+                <stop
+                  offset="0"
+                  stop-color="#0b0d12"
+                />
+                <stop
+                  offset="1"
+                  stop-color="#222936"
+                />
               </linearGradient>
             </defs>
-            <rect width="1080" height="1080" rx="90" fill="url(#bg)"/>
-            <circle cx="540" cy="430" r="230" fill="#111722" stroke="#ff9900" stroke-width="18"/>
-            <text x="540" y="820" text-anchor="middle" fill="#ffffff" font-family="Arial" font-size="72" font-weight="800">BON PLAN AMAZON</text>
-            <text x="540" y="910" text-anchor="middle" fill="#ff9900" font-family="Arial" font-size="48" font-weight="700">AlerteBonPlan</text>
+
+            <rect
+              width="1080"
+              height="1080"
+              rx="90"
+              fill="url(#bg)"
+            />
+
+            <circle
+              cx="540"
+              cy="430"
+              r="230"
+              fill="#111722"
+              stroke="#ff9900"
+              stroke-width="18"
+            />
+
+            <text
+              x="540"
+              y="820"
+              text-anchor="middle"
+              fill="#ffffff"
+              font-family="Arial"
+              font-size="72"
+              font-weight="800"
+            >
+              BON PLAN AMAZON
+            </text>
+
+            <text
+              x="540"
+              y="910"
+              text-anchor="middle"
+              fill="#ff9900"
+              font-family="Arial"
+              font-size="48"
+              font-weight="700"
+            >
+              AlerteBonPlan
+            </text>
           </svg>
           SVG
+          fi
+
+          if [ -f public/product-image.jpg ]; then
+            echo "Image Amazon utilisée."
+            ls -lh public/product-image.jpg
+          else
+            echo "Image de remplacement utilisée."
+            ls -lh public/product-image.svg
           fi
 
       - name: Créer les données du deal
@@ -399,43 +784,76 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           node <<'NODE'
           const fs = require('fs');
 
-          const localImage = fs.existsSync('public/product-image.jpg')
+          const localImage = fs.existsSync(
+            'public/product-image.jpg'
+          )
             ? 'product-image.jpg'
             : 'product-image.svg';
 
           const props = {
-            title: process.env.DEAL_TITLE || 'Bon plan Amazon',
+            title:
+              process.env.DEAL_TITLE ||
+              'Bon plan Amazon',
+
             shortTitle: '',
-            currentPrice: process.env.CURRENT_PRICE || '',
-            originalPrice: process.env.ORIGINAL_PRICE || '',
-            discount: '${{ steps.eligibility.outputs.normalized_discount }}' || process.env.DISCOUNT || '',
+
+            currentPrice:
+              process.env.CURRENT_PRICE ||
+              '',
+
+            originalPrice:
+              process.env.ORIGINAL_PRICE ||
+              '',
+
+            discount:
+              '${{ steps.eligibility.outputs.normalized_discount }}' ||
+              process.env.DISCOUNT ||
+              '',
+
             imageUrl: localImage,
-            affiliateUrl: process.env.AFFILIATE_URL || '',
-            telegramUrl: process.env.TELEGRAM_PUBLIC_URL || '',
+
+            affiliateUrl:
+              process.env.AFFILIATE_URL ||
+              '',
+
+            telegramUrl:
+              process.env.TELEGRAM_PUBLIC_URL ||
+              ''
           };
 
           if (!props.affiliateUrl) {
-            throw new Error('AFFILIATE_URL est manquant.');
+            throw new Error(
+              'AFFILIATE_URL est manquant.'
+            );
           }
 
           if (!props.telegramUrl) {
-            throw new Error('TELEGRAM_PUBLIC_URL est manquant. Ajoute la variable GitHub correspondante.');
+            throw new Error(
+              'TELEGRAM_PUBLIC_URL est manquant. ' +
+              'Ajoute la variable GitHub correspondante.'
+            );
           }
 
-          fs.writeFileSync('props.json', JSON.stringify(props, null, 2));
+          fs.writeFileSync(
+            'props.json',
+            JSON.stringify(props, null, 2)
+          );
+
           console.log(props);
           NODE
-
 
       - name: Générer le QR code Telegram
         if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
+
           python generate_qr.py
+
           test -s public/telegram-qr.png
           ls -lh public/telegram-qr.png
 
@@ -444,6 +862,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           python generate_voice.py
 
           for AUDIO in \
@@ -453,7 +872,9 @@ jobs:
             public/voice_final.mp3
           do
             test -s "$AUDIO" || {
-              echo "::error::Fichier audio absent : $AUDIO"
+              echo \
+                "::error::Fichier audio absent : $AUDIO"
+
               exit 1
             }
           done
@@ -466,30 +887,82 @@ jobs:
         run: |
           set -euo pipefail
 
-          INTRO_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_intro.mp3)"
-          PRODUCT_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_product.mp3)"
-          PRICE_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_price.mp3)"
-          FINAL_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_final.mp3)"
+          INTRO_SECONDS="$(
+            ffprobe \
+              -v error \
+              -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 \
+              public/voice_intro.mp3
+          )"
 
-          node - "$INTRO_SECONDS" "$PRODUCT_SECONDS" "$PRICE_SECONDS" "$FINAL_SECONDS" <<'NODE'
+          PRODUCT_SECONDS="$(
+            ffprobe \
+              -v error \
+              -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 \
+              public/voice_product.mp3
+          )"
+
+          PRICE_SECONDS="$(
+            ffprobe \
+              -v error \
+              -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 \
+              public/voice_price.mp3
+          )"
+
+          FINAL_SECONDS="$(
+            ffprobe \
+              -v error \
+              -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 \
+              public/voice_final.mp3
+          )"
+
+          node \
+            - \
+            "$INTRO_SECONDS" \
+            "$PRODUCT_SECONDS" \
+            "$PRICE_SECONDS" \
+            "$FINAL_SECONDS" \
+            <<'NODE'
           const fs = require('fs');
 
           const fps = 30;
           const paddingSeconds = 0.30;
-          const durations = process.argv.slice(2).map(Number);
+
+          const durations =
+            process.argv
+              .slice(2)
+              .map(Number);
 
           if (
             durations.length !== 4 ||
-            durations.some((duration) => !Number.isFinite(duration) || duration <= 0)
+            durations.some(
+              (duration) =>
+                !Number.isFinite(duration) ||
+                duration <= 0
+            )
           ) {
-            throw new Error(`Durées audio invalides : ${durations.join(', ')}`);
+            throw new Error(
+              `Durées audio invalides : ` +
+              `${durations.join(', ')}`
+            );
           }
 
-          const frames = durations.map((duration) =>
-            Math.ceil((duration + paddingSeconds) * fps)
+          const frames = durations.map(
+            (duration) =>
+              Math.ceil(
+                (duration + paddingSeconds) * fps
+              )
           );
 
-          const [intro, product, price, finalScene] = frames;
+          const [
+            intro,
+            product,
+            price,
+            finalScene
+          ] = frames;
 
           const content = [
             `export const FPS = ${fps};`,
@@ -500,74 +973,524 @@ jobs:
             `export const FINAL_FRAMES = ${finalScene};`,
             '',
             'export const INTRO_FROM = 0;',
-            'export const PRODUCT_FROM = INTRO_FROM + INTRO_FRAMES;',
-            'export const PRICE_FROM = PRODUCT_FROM + PRODUCT_FRAMES;',
-            'export const FINAL_FROM = PRICE_FROM + PRICE_FRAMES;',
+            (
+              'export const PRODUCT_FROM = ' +
+              'INTRO_FROM + INTRO_FRAMES;'
+            ),
+            (
+              'export const PRICE_FROM = ' +
+              'PRODUCT_FROM + PRODUCT_FRAMES;'
+            ),
+            (
+              'export const FINAL_FROM = ' +
+              'PRICE_FROM + PRICE_FRAMES;'
+            ),
             '',
-            'export const TOTAL_FRAMES = FINAL_FROM + FINAL_FRAMES;',
-            '',
+            (
+              'export const TOTAL_FRAMES = ' +
+              'FINAL_FROM + FINAL_FRAMES;'
+            ),
+            ''
           ].join('\n');
 
-          fs.writeFileSync('src/timings.js', content);
+          fs.writeFileSync(
+            'src/timings.js',
+            content
+          );
 
-          console.log(`Intro : ${durations[0].toFixed(2)} s -> ${intro} frames`);
-          console.log(`Produit : ${durations[1].toFixed(2)} s -> ${product} frames`);
-          console.log(`Prix : ${durations[2].toFixed(2)} s -> ${price} frames`);
-          console.log(`Final : ${durations[3].toFixed(2)} s -> ${finalScene} frames`);
-          console.log(`Total : ${frames.reduce((sum, value) => sum + value, 0)} frames`);
+          console.log(
+            `Intro : ` +
+            `${durations[0].toFixed(2)} s ` +
+            `-> ${intro} frames`
+          );
+
+          console.log(
+            `Produit : ` +
+            `${durations[1].toFixed(2)} s ` +
+            `-> ${product} frames`
+          );
+
+          console.log(
+            `Prix : ` +
+            `${durations[2].toFixed(2)} s ` +
+            `-> ${price} frames`
+          );
+
+          console.log(
+            `Final : ` +
+            `${durations[3].toFixed(2)} s ` +
+            `-> ${finalScene} frames`
+          );
+
+          console.log(
+            `Total : ` +
+            `${
+              frames.reduce(
+                (sum, value) => sum + value,
+                0
+              )
+            } frames`
+          );
           NODE
 
           cat src/timings.js
 
-      - name: Générer la légende TikTok
-        if: steps.eligibility.outputs.eligible == 'true'
-        run: python generate_caption.py
-
-      - name: Générer la vidéo
+      - name: Générer la légende
         if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
+
+          python generate_caption.py
+
+          test -s tiktok_caption.txt
+
+          echo "Légende générée :"
+          cat tiktok_caption.txt
+
+      - name: Générer la vidéo Remotion en haute qualité
+        if: steps.eligibility.outputs.eligible == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
           npx remotion render \
             src/index.jsx \
             DealVideo \
-            video_tiktok.mp4 \
+            video_raw.mp4 \
             --props=props.json \
             --codec=h264 \
-            --crf=16
+            --crf=12 \
+            --pixel-format=yuv420p \
+            --audio-codec=aac \
+            --audio-bitrate=256k \
+            --concurrency=2
 
-      - name: Vérifier la vidéo
+          test -s video_raw.mp4
+          ls -lh video_raw.mp4
+
+      - name: Préparer la musique de fond
+        if: steps.eligibility.outputs.eligible == 'true'
+        id: music
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -s assets/background-music.mp3 ]; then
+            echo "Musique trouvée."
+
+            cp \
+              assets/background-music.mp3 \
+              background-music.mp3
+
+            echo "available=true" \
+              >> "$GITHUB_OUTPUT"
+
+            ls -lh background-music.mp3
+          else
+            echo \
+              "Aucune musique trouvée dans assets/background-music.mp3."
+
+            echo \
+              "La vidéo conservera uniquement la voix."
+
+            echo "available=false" \
+              >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Mixer la voix et la musique
+        if: >
+          steps.eligibility.outputs.eligible == 'true' &&
+          steps.music.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ffmpeg \
+            -hide_banner \
+            -loglevel warning \
+            -y \
+            -i video_raw.mp4 \
+            -stream_loop -1 \
+            -i background-music.mp3 \
+            -filter_complex "
+              [0:a]
+                loudnorm=
+                  I=-15:
+                  LRA=7:
+                  TP=-1.5
+              [voice];
+
+              [1:a]
+                highpass=f=80,
+                lowpass=f=14000,
+                volume=0.075
+              [music];
+
+              [music][voice]
+                sidechaincompress=
+                  threshold=0.025:
+                  ratio=10:
+                  attack=20:
+                  release=400
+              [ducked_music];
+
+              [voice][ducked_music]
+                amix=
+                  inputs=2:
+                  weights='1 1':
+                  normalize=0,
+                alimiter=limit=0.95
+              [final_audio]
+            " \
+            -map 0:v:0 \
+            -map "[final_audio]" \
+            -c:v libx264 \
+            -preset slow \
+            -crf 14 \
+            -profile:v high \
+            -level:v 4.1 \
+            -pix_fmt yuv420p \
+            -movflags +faststart \
+            -c:a aac \
+            -b:a 192k \
+            -ar 48000 \
+            -ac 2 \
+            -shortest \
+            video_tiktok.mp4
+
+          test -s video_tiktok.mp4
+          ls -lh video_tiktok.mp4
+
+      - name: Finaliser la vidéo sans musique
+        if: >
+          steps.eligibility.outputs.eligible == 'true' &&
+          steps.music.outputs.available != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ffmpeg \
+            -hide_banner \
+            -loglevel warning \
+            -y \
+            -i video_raw.mp4 \
+            -filter_complex "
+              [0:a]
+                loudnorm=
+                  I=-15:
+                  LRA=7:
+                  TP=-1.5,
+                alimiter=limit=0.95
+              [final_audio]
+            " \
+            -map 0:v:0 \
+            -map "[final_audio]" \
+            -c:v libx264 \
+            -preset slow \
+            -crf 14 \
+            -profile:v high \
+            -level:v 4.1 \
+            -pix_fmt yuv420p \
+            -movflags +faststart \
+            -c:a aac \
+            -b:a 192k \
+            -ar 48000 \
+            -ac 2 \
+            video_tiktok.mp4
+
+          test -s video_tiktok.mp4
+          ls -lh video_tiktok.mp4
+
+      - name: Vérifier la vidéo finale
         if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
+
           test -s video_tiktok.mp4
           test -s tiktok_caption.txt
-          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 video_tiktok.mp4
+
+          WIDTH="$(
+            ffprobe \
+              -v error \
+              -select_streams v:0 \
+              -show_entries stream=width \
+              -of csv=p=0 \
+              video_tiktok.mp4
+          )"
+
+          HEIGHT="$(
+            ffprobe \
+              -v error \
+              -select_streams v:0 \
+              -show_entries stream=height \
+              -of csv=p=0 \
+              video_tiktok.mp4
+          )"
+
+          DURATION="$(
+            ffprobe \
+              -v error \
+              -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 \
+              video_tiktok.mp4
+          )"
+
+          VIDEO_CODEC="$(
+            ffprobe \
+              -v error \
+              -select_streams v:0 \
+              -show_entries stream=codec_name \
+              -of csv=p=0 \
+              video_tiktok.mp4
+          )"
+
+          AUDIO_CODEC="$(
+            ffprobe \
+              -v error \
+              -select_streams a:0 \
+              -show_entries stream=codec_name \
+              -of csv=p=0 \
+              video_tiktok.mp4
+          )"
+
+          echo "Résolution : ${WIDTH}x${HEIGHT}"
+          echo "Durée : ${DURATION} secondes"
+          echo "Codec vidéo : ${VIDEO_CODEC}"
+          echo "Codec audio : ${AUDIO_CODEC}"
+
+          if \
+            [ "$WIDTH" -lt 540 ] ||
+            [ "$HEIGHT" -lt 960 ]
+          then
+            echo \
+              "::error::Résolution insuffisante."
+
+            exit 1
+          fi
+
+          python - "$DURATION" <<'PY'
+          import sys
+
+          duration = float(sys.argv[1])
+
+          if not 4 <= duration <= 60:
+              raise SystemExit(
+                  "Durée incompatible avec un Réel : "
+                  f"{duration:.2f} secondes"
+              )
+          PY
+
+          ls -lh video_tiktok.mp4
+
+      - name: Publier le Réel Facebook
+        if: steps.eligibility.outputs.eligible == 'true'
+        continue-on-error: true
+        shell: bash
+        env:
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          FACEBOOK_GRAPH_VERSION: ${{ secrets.FACEBOOK_GRAPH_VERSION }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${FACEBOOK_PAGE_ACCESS_TOKEN:-}" ]; then
+            echo \
+              "::error::Le secret FACEBOOK_PAGE_ACCESS_TOKEN est manquant."
+
+            exit 1
+          fi
+
+          GRAPH_VERSION="${
+            FACEBOOK_GRAPH_VERSION:-v25.0
+          }"
+
+          CAPTION="$(
+            cat tiktok_caption.txt
+          )"
+
+          echo \
+            "Création de la session Facebook Reel..."
+
+          START_RESPONSE="$(
+            curl \
+              --fail-with-body \
+              --silent \
+              --show-error \
+              --request POST \
+              --get \
+              --data-urlencode \
+                "access_token=${FACEBOOK_PAGE_ACCESS_TOKEN}" \
+              --data-urlencode \
+                "upload_phase=start" \
+              "https://graph.facebook.com/${GRAPH_VERSION}/me/video_reels"
+          )"
+
+          VIDEO_ID="$(
+            printf '%s' "$START_RESPONSE" |
+            python -c '
+          import json
+          import sys
+
+          response = json.load(sys.stdin)
+          print(response["video_id"])
+          '
+          )"
+
+          UPLOAD_URL="$(
+            printf '%s' "$START_RESPONSE" |
+            python -c '
+          import json
+          import sys
+
+          response = json.load(sys.stdin)
+          print(response["upload_url"])
+          '
+          )"
+
+          if \
+            [ -z "$VIDEO_ID" ] ||
+            [ -z "$UPLOAD_URL" ]
+          then
+            echo \
+              "::error::Création du Réel impossible."
+
+            echo "$START_RESPONSE"
+            exit 1
+          fi
+
+          FILE_SIZE="$(
+            stat \
+              -c%s \
+              video_tiktok.mp4
+          )"
+
+          echo \
+            "Envoi de la vidéo vers Facebook..."
+
+          UPLOAD_RESPONSE="$(
+            curl \
+              --fail-with-body \
+              --silent \
+              --show-error \
+              --request POST \
+              "$UPLOAD_URL" \
+              --header \
+                "Authorization: OAuth ${FACEBOOK_PAGE_ACCESS_TOKEN}" \
+              --header \
+                "offset: 0" \
+              --header \
+                "file_size: ${FILE_SIZE}" \
+              --header \
+                "Content-Type: application/octet-stream" \
+              --data-binary \
+                @video_tiktok.mp4
+          )"
+
+          printf '%s' "$UPLOAD_RESPONSE" |
+          python -c '
+          import json
+          import sys
+
+          response = json.load(sys.stdin)
+
+          if response.get("success") is not True:
+              raise SystemExit(
+                  f"Échec de l’envoi : {response}"
+              )
+          '
+
+          echo \
+            "Finalisation du Réel Facebook..."
+
+          FINISH_RESPONSE="$(
+            curl \
+              --fail-with-body \
+              --silent \
+              --show-error \
+              --request POST \
+              --get \
+              --data-urlencode \
+                "access_token=${FACEBOOK_PAGE_ACCESS_TOKEN}" \
+              --data-urlencode \
+                "video_id=${VIDEO_ID}" \
+              --data-urlencode \
+                "upload_phase=finish" \
+              --data-urlencode \
+                "video_state=PUBLISHED" \
+              --data-urlencode \
+                "title=${DEAL_TITLE}" \
+              --data-urlencode \
+                "description=${CAPTION}" \
+              "https://graph.facebook.com/${GRAPH_VERSION}/me/video_reels"
+          )"
+
+          printf '%s' "$FINISH_RESPONSE" |
+          python -c '
+          import json
+          import sys
+
+          response = json.load(sys.stdin)
+
+          if response.get("success") is not True:
+              raise SystemExit(
+                  f"Échec de la publication : {response}"
+              )
+          '
+
+          echo \
+            "✅ Réel Facebook publié."
+
+          echo \
+            "Video ID : ${VIDEO_ID}"
+
+      - name: Conserver la vidéo dans GitHub
+        if: steps.eligibility.outputs.eligible == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-alertebonplan-${{ github.run_number }}
+          path: |
+            video_tiktok.mp4
+            tiktok_caption.txt
+          retention-days: 7
+          if-no-files-found: error
 
       - name: Envoyer la vidéo dans Telegram
         if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail-with-body \
+
+          curl \
+            --fail-with-body \
             --request POST \
             "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendVideo" \
-            --form "chat_id=${{ secrets.TIKTOK_CHANNEL_ID }}" \
-            --form "video=@video_tiktok.mp4" \
-            --form "supports_streaming=true" \
-            --form-string "caption=🎬 Vidéo TikTok prête — la légende arrive dans le message suivant."
+            --form \
+              "chat_id=${{ secrets.TIKTOK_CHANNEL_ID }}" \
+            --form \
+              "video=@video_tiktok.mp4" \
+            --form \
+              "supports_streaming=true" \
+            --form-string \
+              "caption=🎬 Vidéo TikTok et Réel Facebook générés automatiquement."
 
       - name: Envoyer la légende
         if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          CAPTION="$(cat tiktok_caption.txt)"
 
-          curl --fail-with-body \
+          CAPTION="$(
+            cat tiktok_caption.txt
+          )"
+
+          curl \
+            --fail-with-body \
             --request POST \
             "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            --form "chat_id=${{ secrets.TIKTOK_CHANNEL_ID }}" \
-            --form "disable_web_page_preview=true" \
-            --form-string "text=${CAPTION}"
+            --form \
+              "chat_id=${{ secrets.TIKTOK_CHANNEL_ID }}" \
+            --form \
+              "disable_web_page_preview=true" \
+            --form-string \
+              "text=${CAPTION}"
