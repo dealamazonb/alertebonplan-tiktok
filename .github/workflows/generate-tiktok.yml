@@ -971,10 +971,10 @@ jobs:
           echo "Contenu de src/timings.js :"
           cat src/timings.js
 
-            - name: Générer les légendes TikTok et Facebook
-          if: steps.eligibility.outputs.eligible == 'true'
-          shell: bash
-          run: |
+      - name: Générer les légendes TikTok et Facebook
+        if: steps.eligibility.outputs.eligible == 'true'
+        shell: bash
+        run: |
           set -euo pipefail
 
           python generate_caption.py
