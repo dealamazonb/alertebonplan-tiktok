@@ -1718,6 +1718,7 @@ jobs:
           path: |
             video_tiktok.mp4
             tiktok_caption.txt
+            facebook_caption.txt
           retention-days: 7
           if-no-files-found: error
 
@@ -1747,7 +1748,7 @@ jobs:
           set -euo pipefail
 
           CAPTION="$(
-            cat tiktok_caption.txt
+           cat facebook_caption.txt
           )"
 
           curl \
