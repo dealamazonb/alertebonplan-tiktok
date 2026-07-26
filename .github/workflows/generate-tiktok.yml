@@ -1488,7 +1488,6 @@ jobs:
 
       - name: Publier le Réel Facebook
         if: steps.eligibility.outputs.eligible == 'true'
-        continue-on-error: true
         shell: bash
         env:
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
@@ -1497,22 +1496,14 @@ jobs:
           set -euo pipefail
 
           if [ -z "${FACEBOOK_PAGE_ACCESS_TOKEN:-}" ]; then
-            echo \
-              "::error::Le secret FACEBOOK_PAGE_ACCESS_TOKEN est manquant."
-
+            echo "::error::Le secret FACEBOOK_PAGE_ACCESS_TOKEN est manquant."
             exit 1
           fi
 
-          GRAPH_VERSION="${
-            FACEBOOK_GRAPH_VERSION:-v25.0
-          }"
+          GRAPH_VERSION="${FACEBOOK_GRAPH_VERSION:-v25.0}"
+          CAPTION="$(cat facebook_caption.txt)"
 
-          CAPTION="$(
-            cat tiktok_caption.txt
-          )"
-
-          echo \
-            "Création de la session Facebook Reel..."
+          echo "Création de la session Facebook Reel..."
 
           START_RESPONSE="$(
             curl \
@@ -1521,10 +1512,8 @@ jobs:
               --show-error \
               --request POST \
               --get \
-              --data-urlencode \
-                "access_token=${FACEBOOK_PAGE_ACCESS_TOKEN}" \
-              --data-urlencode \
-                "upload_phase=start" \
+              --data-urlencode "access_token=${FACEBOOK_PAGE_ACCESS_TOKEN}" \
+              --data-urlencode "upload_phase=start" \
               "https://graph.facebook.com/${GRAPH_VERSION}/me/video_reels"
           )"
 
