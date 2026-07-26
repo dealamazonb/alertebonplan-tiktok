@@ -1035,18 +1035,284 @@ jobs:
 
           cat src/timings.js
 
-      - name: Générer la légende
-        if: steps.eligibility.outputs.eligible == 'true'
-        shell: bash
-        run: |
+            - name: Générer les légendes TikTok et Facebook
+          if: steps.eligibility.outputs.eligible == 'true'
+          shell: bash
+          run: |
           set -euo pipefail
 
           python generate_caption.py
-
           test -s tiktok_caption.txt
 
-          echo "Légende générée :"
+          node <<'NODE'
+          const fs = require('fs');
+
+          const clean = (value) =>
+            String(value || '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+          const title = clean(process.env.DEAL_TITLE);
+          const currentPrice = clean(process.env.CURRENT_PRICE);
+          const originalPrice = clean(process.env.ORIGINAL_PRICE);
+          const affiliateUrl = clean(process.env.AFFILIATE_URL);
+
+          const rawDiscount = clean(process.env.DISCOUNT);
+
+          const parsePrice = (value) => {
+            const normalized = String(value || '')
+              .replace(/\s/g, '')
+              .replace(/[€$£]/g, '')
+              .replace(',', '.')
+              .replace(/[^\d.-]/g, '');
+
+            const number = Number(normalized);
+
+            return Number.isFinite(number)
+              ? number
+              : null;
+          };
+
+          let discount = null;
+
+          const discountMatch = rawDiscount.match(
+            /-?\s*(\d{1,3}(?:[.,]\d+)?)/
+          );
+
+          if (discountMatch) {
+            discount = Math.round(
+              Number(
+                discountMatch[1].replace(',', '.')
+              )
+            );
+          }
+
+          if (discount === null) {
+            const current = parsePrice(currentPrice);
+            const original = parsePrice(originalPrice);
+
+            if (
+              current !== null &&
+              original !== null &&
+              original > current &&
+              original > 0
+            ) {
+              discount = Math.round(
+                ((original - current) / original) * 100
+              );
+            }
+          }
+
+          const normalizedTitle = title
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase();
+
+          const hashtags = new Set([
+            '#BonPlan',
+            '#Amazon',
+            '#Promo',
+            '#AlerteBonPlan',
+            '#BonPlanAmazon'
+          ]);
+
+          const hashtagGroups = [
+            {
+              keywords: [
+                'rtx',
+                'geforce',
+                'radeon',
+                'ryzen',
+                'intel',
+                'ssd',
+                'nvme',
+                'pc gamer',
+                'ordinateur',
+                'clavier',
+                'souris gaming',
+                'casque gaming'
+              ],
+              hashtags: [
+                '#HighTech',
+                '#Gaming',
+                '#Informatique',
+                '#SetupGaming'
+              ]
+            },
+            {
+              keywords: [
+                'iphone',
+                'smartphone',
+                'galaxy',
+                'pixel',
+                'xiaomi',
+                'oneplus',
+                'honor'
+              ],
+              hashtags: [
+                '#Smartphone',
+                '#HighTech',
+                '#Tech',
+                '#Mobile'
+              ]
+            },
+            {
+              keywords: [
+                'tv',
+                'televiseur',
+                'oled',
+                'qled',
+                'mini led',
+                'barre de son',
+                'enceinte'
+              ],
+              hashtags: [
+                '#TV',
+                '#HomeCinema',
+                '#HighTech',
+                '#Audio'
+              ]
+            },
+            {
+              keywords: [
+                'air fryer',
+                'aspirateur',
+                'robot aspirateur',
+                'machine a cafe',
+                'cookeo',
+                'moulinex',
+                'ninja',
+                'dyson'
+              ],
+              hashtags: [
+                '#Maison',
+                '#Electromenager',
+                '#Cuisine',
+                '#BonPlanMaison'
+              ]
+            },
+            {
+              keywords: [
+                'lego',
+                'pokemon',
+                'playmobil',
+                'barbie',
+                'hot wheels',
+                'jeu de societe'
+              ],
+              hashtags: [
+                '#Jouets',
+                '#Geek',
+                '#Cadeau',
+                '#BonPlanJouets'
+              ]
+            },
+            {
+              keywords: [
+                'parfum',
+                'lisseur',
+                'seche cheveux',
+                'rasoir',
+                'tondeuse',
+                'oneblade'
+              ],
+              hashtags: [
+                '#Beaute',
+                '#Parfum',
+                '#Soin',
+                '#BonPlanBeaute'
+              ]
+            },
+            {
+              keywords: [
+                'perceuse',
+                'visseuse',
+                'bosch',
+                'makita',
+                'dewalt',
+                'karcher',
+                'tondeuse'
+              ],
+              hashtags: [
+                '#Bricolage',
+                '#Jardin',
+                '#Outils',
+                '#BonPlanBricolage'
+              ]
+            }
+          ];
+
+          for (const group of hashtagGroups) {
+            const matches = group.keywords.some(
+              (keyword) =>
+                normalizedTitle.includes(keyword)
+            );
+
+            if (matches) {
+              group.hashtags.forEach(
+                (hashtag) => hashtags.add(hashtag)
+              );
+            }
+          }
+
+          const lines = [];
+
+          lines.push('🔥 BON PLAN AMAZON');
+          lines.push('');
+          lines.push(`📦 ${title || 'Bon plan Amazon'}`);
+          lines.push('');
+
+          if (currentPrice) {
+            lines.push(`💰 Nouveau prix : ${currentPrice}`);
+          }
+
+          if (originalPrice) {
+            lines.push(`❌ Ancien prix : ${originalPrice}`);
+          }
+
+          if (discount !== null) {
+            lines.push(`📉 Réduction : -${discount}%`);
+          }
+
+          lines.push('');
+
+          if (affiliateUrl) {
+            lines.push('👉 Voir le produit :');
+            lines.push(affiliateUrl);
+            lines.push('');
+          }
+
+          lines.push(
+            '⚠️ Le prix et la disponibilité peuvent évoluer rapidement.'
+          );
+
+          lines.push('');
+          lines.push(
+            Array.from(hashtags)
+              .slice(0, 10)
+              .join(' ')
+          );
+
+          const caption = lines.join('\n');
+
+          fs.writeFileSync(
+            'facebook_caption.txt',
+            caption,
+            'utf8'
+          );
+
+          console.log('Description Facebook générée :');
+          console.log(caption);
+          NODE
+
+          test -s facebook_caption.txt
+
+          echo "Légende TikTok :"
           cat tiktok_caption.txt
+
+          echo ""
+          echo "Description Facebook :"
+          cat facebook_caption.txt
 
       - name: Générer la vidéo Remotion en haute qualité
         if: steps.eligibility.outputs.eligible == 'true'
