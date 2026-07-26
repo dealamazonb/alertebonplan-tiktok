@@ -879,61 +879,23 @@ jobs:
           done
 
           ls -lh public/voice_*.mp3
-
       - name: Synchroniser les scènes
         if: steps.eligibility.outputs.eligible == 'true'
         shell: bash
         run: |
           set -euo pipefail
 
-          INTRO_SECONDS="$(
-            ffprobe \
-              -v error \
-              -show_entries format=duration \
-              -of default=noprint_wrappers=1:nokey=1 \
-              public/voice_intro.mp3
-          )"
+          INTRO_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_intro.mp3)"
+          PRODUCT_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_product.mp3)"
+          PRICE_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_price.mp3)"
+          FINAL_SECONDS="$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 public/voice_final.mp3)"
 
-          PRODUCT_SECONDS="$(
-            ffprobe \
-              -v error \
-              -show_entries format=duration \
-              -of default=noprint_wrappers=1:nokey=1 \
-              public/voice_product.mp3
-          )"
-
-          PRICE_SECONDS="$(
-            ffprobe \
-              -v error \
-              -show_entries format=duration \
-              -of default=noprint_wrappers=1:nokey=1 \
-              public/voice_price.mp3
-          )"
-
-          FINAL_SECONDS="$(
-            ffprobe \
-              -v error \
-              -show_entries format=duration \
-              -of default=noprint_wrappers=1:nokey=1 \
-              public/voice_final.mp3
-          )"
-
-          node \
-            - \
-            "$INTRO_SECONDS" \
-            "$PRODUCT_SECONDS" \
-            "$PRICE_SECONDS" \
-            "$FINAL_SECONDS" \
-            <<'NODE'
+          node - "$INTRO_SECONDS" "$PRODUCT_SECONDS" "$PRICE_SECONDS" "$FINAL_SECONDS" <<'NODE'
           const fs = require('fs');
 
           const fps = 30;
           const paddingSeconds = 0.30;
-
-          const durations =
-            process.argv
-              .slice(2)
-              .map(Number);
+          const durations = process.argv.slice(2).map(Number);
 
           if (
             durations.length !== 4 ||
@@ -944,16 +906,13 @@ jobs:
             )
           ) {
             throw new Error(
-              `Durées audio invalides : ` +
-              `${durations.join(', ')}`
+              `Durées audio invalides : ${durations.join(', ')}`
             );
           }
 
           const frames = durations.map(
             (duration) =>
-              Math.ceil(
-                (duration + paddingSeconds) * fps
-              )
+              Math.ceil((duration + paddingSeconds) * fps)
           );
 
           const [
@@ -972,23 +931,11 @@ jobs:
             `export const FINAL_FRAMES = ${finalScene};`,
             '',
             'export const INTRO_FROM = 0;',
-            (
-              'export const PRODUCT_FROM = ' +
-              'INTRO_FROM + INTRO_FRAMES;'
-            ),
-            (
-              'export const PRICE_FROM = ' +
-              'PRODUCT_FROM + PRODUCT_FRAMES;'
-            ),
-            (
-              'export const FINAL_FROM = ' +
-              'PRICE_FROM + PRICE_FRAMES;'
-            ),
+            'export const PRODUCT_FROM = INTRO_FROM + INTRO_FRAMES;',
+            'export const PRICE_FROM = PRODUCT_FROM + PRODUCT_FRAMES;',
+            'export const FINAL_FROM = PRICE_FROM + PRICE_FRAMES;',
             '',
-            (
-              'export const TOTAL_FRAMES = ' +
-              'FINAL_FROM + FINAL_FRAMES;'
-            ),
+            'export const TOTAL_FRAMES = FINAL_FROM + FINAL_FRAMES;',
             ''
           ].join('\n');
 
@@ -998,40 +945,30 @@ jobs:
           );
 
           console.log(
-            `Intro : ` +
-            `${durations[0].toFixed(2)} s ` +
-            `-> ${intro} frames`
+            `Intro : ${durations[0].toFixed(2)} s -> ${intro} frames`
           );
 
           console.log(
-            `Produit : ` +
-            `${durations[1].toFixed(2)} s ` +
-            `-> ${product} frames`
+            `Produit : ${durations[1].toFixed(2)} s -> ${product} frames`
           );
 
           console.log(
-            `Prix : ` +
-            `${durations[2].toFixed(2)} s ` +
-            `-> ${price} frames`
+            `Prix : ${durations[2].toFixed(2)} s -> ${price} frames`
           );
 
           console.log(
-            `Final : ` +
-            `${durations[3].toFixed(2)} s ` +
-            `-> ${finalScene} frames`
+            `Final : ${durations[3].toFixed(2)} s -> ${finalScene} frames`
           );
 
           console.log(
-            `Total : ` +
-            `${
-              frames.reduce(
-                (sum, value) => sum + value,
-                0
-              )
-            } frames`
+            `Total : ${frames.reduce(
+              (sum, value) => sum + value,
+              0
+            )} frames`
           );
           NODE
 
+          echo "Contenu de src/timings.js :"
           cat src/timings.js
 
             - name: Générer les légendes TikTok et Facebook
