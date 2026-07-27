@@ -1,15 +1,14 @@
 {
   "name": "alertebonplan-tiktok",
-  "version": "1.0.0",
+  "version": "29.0.0",
   "private": true,
   "scripts": {
-    "studio": "remotion studio src/index.jsx",
-    "render": "remotion render src/index.jsx DealVideo video_tiktok.mp4"
+    "render": "remotion render src/index.jsx DealVideo video_raw.mp4 --props=props.json --codec=h264 --crf=14 --pixel-format=yuv420p --concurrency=2"
   },
   "dependencies": {
-    "@remotion/cli": "^4.0.0",
+    "@remotion/cli": "^4.0.300",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "remotion": "^4.0.0"
+    "remotion": "^4.0.300"
   }
 }
