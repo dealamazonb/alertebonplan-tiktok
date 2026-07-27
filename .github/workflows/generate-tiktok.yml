@@ -89,13 +89,6 @@ jobs:
           console.log(props);
           NODE
 
-      - name: Générer la voix
-        run: |
-          python generate_voice.py
-          test -s public/voice_hook.mp3
-          test -s public/voice_detail.mp3
-          test -s public/voice_cta.mp3
-
       - name: Générer les légendes
         run: |
           python generate_caption.py
