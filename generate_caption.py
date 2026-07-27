@@ -9,13 +9,11 @@ def clean(value: object) -> str:
 
 def shorten_title(value: object, max_length: int = 70) -> str:
     title = clean(value)
-
     if len(title) <= max_length:
         return title
 
     shortened = title[: max_length + 1]
     last_space = shortened.rfind(" ")
-
     if last_space > 25:
         shortened = shortened[:last_space]
 
@@ -24,7 +22,6 @@ def shorten_title(value: object, max_length: int = 70) -> str:
 
 def load_props() -> dict:
     path = Path("props.json")
-
     if not path.exists():
         raise FileNotFoundError("props.json est introuvable.")
 
@@ -68,7 +65,7 @@ def build_facebook_caption(props: dict) -> str:
     discount = clean(props.get("discount"))
     affiliate_url = clean(props.get("affiliateUrl"))
 
-    lines = [f"🔥 BON PLAN AMAZON", "", title]
+    lines = ["🔥 BON PLAN AMAZON", "", title]
 
     if current_price and original_price and discount:
         lines.extend([
@@ -77,16 +74,10 @@ def build_facebook_caption(props: dict) -> str:
             f"📉 {discount}",
         ])
     elif current_price:
-        lines.extend([
-            "",
-            f"💰 Prix actuel : {current_price}",
-        ])
+        lines.extend(["", f"💰 Prix actuel : {current_price}"])
 
     if affiliate_url:
-        lines.extend([
-            "",
-            f"🛒 Voir l’offre : {affiliate_url}",
-        ])
+        lines.extend(["", f"🛒 Voir l’offre : {affiliate_url}"])
 
     lines.extend([
         "",
@@ -100,19 +91,11 @@ def build_facebook_caption(props: dict) -> str:
 
 def main() -> None:
     props = load_props()
-
     tiktok_caption = build_tiktok_caption(props)
     facebook_caption = build_facebook_caption(props)
 
-    Path("tiktok_caption.txt").write_text(
-        tiktok_caption,
-        encoding="utf-8",
-    )
-
-    Path("facebook_caption.txt").write_text(
-        facebook_caption,
-        encoding="utf-8",
-    )
+    Path("tiktok_caption.txt").write_text(tiktok_caption, encoding="utf-8")
+    Path("facebook_caption.txt").write_text(facebook_caption, encoding="utf-8")
 
     print("Légende TikTok :")
     print(tiktok_caption)
