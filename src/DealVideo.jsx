@@ -1,170 +1,309 @@
-name: Generate Social Video V29
+import React from 'react';
+import {
+  AbsoluteFill,
+  Img,
+  Sequence,
+  interpolate,
+  spring,
+  staticFile,
+  useCurrentFrame,
+  useVideoConfig,
+} from 'remotion';
 
-on:
-  workflow_dispatch:
-    inputs:
-      title:
-        description: "Titre du produit"
-        required: true
-        default: "Sac Eastpak Reader M"
-      currentPrice:
-        description: "Prix actuel"
-        required: true
-        default: "34,09 €"
-      originalPrice:
-        description: "Ancien prix vérifié"
-        required: false
-        default: ""
-      discount:
-        description: "Réduction vérifiée"
-        required: false
-        default: ""
-      imageUrl:
-        description: "URL image produit"
-        required: false
-        default: ""
-      affiliateUrl:
-        description: "Lien affilié"
-        required: false
-        default: ""
-  repository_dispatch:
-    types: [generate_tiktok]
+import {
+  HOOK_FROM,
+  HOOK_FRAMES,
+  DEAL_FROM,
+  DEAL_FRAMES,
+  CTA_FROM,
+  CTA_FRAMES,
+} from './timings';
 
-jobs:
-  generate:
-    runs-on: ubuntu-latest
+const clean = (value) => String(value || '').trim();
 
-    steps:
-      - name: Récupérer le dépôt
-        uses: actions/checkout@v4
+const Background = () => {
+  const frame = useCurrentFrame();
 
-      - name: Installer Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+  const shift = interpolate(frame, [0, 270], [0, 80], {
+    extrapolateRight: 'clamp',
+  });
 
-      - name: Installer Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+  return (
+    <AbsoluteFill
+      style={{
+        background:
+          'linear-gradient(160deg, #08111f 0%, #10243c 45%, #142f4c 100%)',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          width: 850,
+          height: 850,
+          borderRadius: '50%',
+          background: 'rgba(46, 194, 255, 0.12)',
+          top: -280 + shift,
+          right: -260,
+          filter: 'blur(20px)',
+        }}
+      />
 
-      - name: Installer les dépendances Node
-        run: npm install
+      <div
+        style={{
+          position: 'absolute',
+          width: 700,
+          height: 700,
+          borderRadius: '50%',
+          background: 'rgba(255, 196, 61, 0.10)',
+          bottom: -260,
+          left: -280 + shift * 0.4,
+          filter: 'blur(30px)',
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
 
-      - name: Installer les dépendances Python
-        run: pip install -r requirements.txt
+const Hook = ({title, currentPrice}) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
 
-      - name: Préparer les données
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          DISPATCH_PAYLOAD: ${{ toJson(github.event.client_payload) }}
-          INPUT_TITLE: ${{ inputs.title }}
-          INPUT_CURRENT_PRICE: ${{ inputs.currentPrice }}
-          INPUT_ORIGINAL_PRICE: ${{ inputs.originalPrice }}
-          INPUT_DISCOUNT: ${{ inputs.discount }}
-          INPUT_IMAGE_URL: ${{ inputs.imageUrl }}
-          INPUT_AFFILIATE_URL: ${{ inputs.affiliateUrl }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
+  const scale = spring({
+    frame,
+    fps,
+    config: {
+      damping: 12,
+      stiffness: 140,
+    },
+  });
 
-          if os.environ.get("EVENT_NAME") == "repository_dispatch":
-              raw = os.environ.get("DISPATCH_PAYLOAD") or "{}"
-              props = json.loads(raw)
-          else:
-              props = {
-                  "title": os.environ.get("INPUT_TITLE", ""),
-                  "currentPrice": os.environ.get("INPUT_CURRENT_PRICE", ""),
-                  "originalPrice": os.environ.get("INPUT_ORIGINAL_PRICE", ""),
-                  "discount": os.environ.get("INPUT_DISCOUNT", ""),
-                  "imageUrl": os.environ.get("INPUT_IMAGE_URL", ""),
-                  "affiliateUrl": os.environ.get("INPUT_AFFILIATE_URL", ""),
-              }
+  return (
+    <AbsoluteFill
+      style={{
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 90,
+        textAlign: 'center',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 56,
+          fontWeight: 800,
+          color: '#ffffff',
+          lineHeight: 1.08,
+          transform: `scale(${0.75 + scale * 0.25})`,
+        }}
+      >
+        Ce produit vient de passer à
+      </div>
 
-          with open("props.json", "w", encoding="utf-8") as f:
-              json.dump(props, f, ensure_ascii=False, indent=2)
+      <div
+        style={{
+          marginTop: 34,
+          fontSize: 108,
+          fontWeight: 900,
+          color: '#ffd34e',
+          transform: `scale(${0.8 + scale * 0.2})`,
+        }}
+      >
+        {clean(currentPrice) || 'un prix très bas'}
+      </div>
 
-          print(json.dumps(props, ensure_ascii=False, indent=2))
-          PY
+      <div
+        style={{
+          marginTop: 34,
+          fontSize: 34,
+          fontWeight: 600,
+          color: 'rgba(255,255,255,0.82)',
+          maxWidth: 850,
+        }}
+      >
+        {clean(title)}
+      </div>
+    </AbsoluteFill>
+  );
+};
 
-      - name: Préparer l’image produit
-        shell: bash
-        run: |
-          mkdir -p public
+const Deal = ({title, currentPrice, originalPrice, discount}) => {
+  const frame = useCurrentFrame();
 
-          IMAGE_URL=$(python - <<'PY'
-          import json
-          with open("props.json", "r", encoding="utf-8") as f:
-              props = json.load(f)
-          print(props.get("imageUrl", ""))
-          PY
-          )
+  const imageScale = interpolate(frame, [0, DEAL_FRAMES], [0.92, 1.08], {
+    extrapolateRight: 'clamp',
+  });
 
-          echo "URL image : $IMAGE_URL"
+  const hasVerifiedDiscount =
+    Boolean(clean(originalPrice)) && Boolean(clean(discount));
 
-          if [ -n "$IMAGE_URL" ]; then
-            curl --fail               --location               --retry 3               --retry-delay 2               --connect-timeout 20               --max-time 60               --user-agent "Mozilla/5.0"               "$IMAGE_URL"               --output public/product-image.jpg || true
-          fi
+  return (
+    <AbsoluteFill
+      style={{
+        padding: '150px 70px 110px',
+        alignItems: 'center',
+      }}
+    >
+      <div
+        style={{
+          width: 780,
+          height: 780,
+          borderRadius: 44,
+          background: '#ffffff',
+          padding: 45,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 30px 80px rgba(0,0,0,0.35)',
+          overflow: 'hidden',
+        }}
+      >
+        <Img
+          src={staticFile('product-image.jpg')}
+          style={{
+            maxWidth: '100%',
+            maxHeight: '100%',
+            objectFit: 'contain',
+            transform: `scale(${imageScale})`,
+          }}
+        />
+      </div>
 
-          if [ ! -s public/product-image.jpg ]; then
-            echo "Image indisponible : création d’une image de secours."
-            python - <<'PY'
-          from PIL import Image, ImageDraw
+      <div
+        style={{
+          marginTop: 58,
+          width: '100%',
+          textAlign: 'center',
+        }}
+      >
+        <div
+          style={{
+            fontSize: 50,
+            lineHeight: 1.08,
+            fontWeight: 800,
+            color: '#ffffff',
+          }}
+        >
+          {clean(title)}
+        </div>
 
-          image = Image.new("RGB", (1000, 1000), "white")
-          draw = ImageDraw.Draw(image)
-          draw.rounded_rectangle(
-              (60, 60, 940, 940),
-              radius=60,
-              fill=(245, 247, 250),
-              outline=(220, 225, 232),
-              width=6,
-          )
-          draw.text(
-              (500, 500),
-              "AlerteBonPlan",
-              fill=(20, 47, 76),
-              anchor="mm",
-          )
-          image.save("public/product-image.jpg", quality=95)
-          PY
-          fi
+        <div
+          style={{
+            marginTop: 32,
+            fontSize: 92,
+            lineHeight: 1,
+            fontWeight: 900,
+            color: '#ffd34e',
+          }}
+        >
+          {clean(currentPrice)}
+        </div>
 
-          file public/product-image.jpg
-          ls -lh public/product-image.jpg
+        {hasVerifiedDiscount ? (
+          <div
+            style={{
+              marginTop: 22,
+              fontSize: 38,
+              fontWeight: 700,
+              color: 'rgba(255,255,255,0.9)',
+            }}
+          >
+            au lieu de {clean(originalPrice)} · {clean(discount)}
+          </div>
+        ) : (
+          <div
+            style={{
+              marginTop: 22,
+              fontSize: 38,
+              fontWeight: 700,
+              color: 'rgba(255,255,255,0.9)',
+            }}
+          >
+            Baisse considérable du prix
+          </div>
+        )}
+      </div>
+    </AbsoluteFill>
+  );
+};
 
-      - name: Générer les légendes
-        run: |
-          python generate_caption.py
-          test -s tiktok_caption.txt
-          test -s facebook_caption.txt
+const CTA = () => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
 
-      - name: Générer la vidéo
-        run: >
-          npx remotion render
-          src/index.jsx
-          DealVideo
-          video_raw.mp4
-          --props=props.json
-          --codec=h264
-          --crf=14
-          --pixel-format=yuv420p
-          --concurrency=2
+  const appear = spring({
+    frame,
+    fps,
+    config: {
+      damping: 15,
+      stiffness: 120,
+    },
+  });
 
-      - name: Vérifier la vidéo
-        run: |
-          test -s video_raw.mp4
-          ffprobe -v error             -select_streams v:0             -show_entries stream=width,height,r_frame_rate             -of default=noprint_wrappers=1             video_raw.mp4
+  return (
+    <AbsoluteFill
+      style={{
+        justifyContent: 'center',
+        alignItems: 'center',
+        textAlign: 'center',
+        padding: 100,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 70,
+          fontWeight: 900,
+          color: '#ffffff',
+          transform: `translateY(${40 - appear * 40}px)`,
+          opacity: appear,
+        }}
+      >
+        D’autres bons plans
+      </div>
 
-      - name: Conserver la vidéo
-        uses: actions/upload-artifact@v4
-        with:
-          name: alertebonplan-video
-          path: |
-            video_raw.mp4
-            tiktok_caption.txt
-            facebook_caption.txt
-          retention-days: 7
+      <div
+        style={{
+          marginTop: 22,
+          fontSize: 54,
+          fontWeight: 800,
+          color: '#ffd34e',
+          transform: `translateY(${40 - appear * 40}px)`,
+          opacity: appear,
+        }}
+      >
+        sur mon profil
+      </div>
+
+      <div
+        style={{
+          marginTop: 44,
+          fontSize: 30,
+          fontWeight: 600,
+          color: 'rgba(255,255,255,0.72)',
+        }}
+      >
+        AlerteBonPlan
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+const DealVideo = (props) => {
+  return (
+    <AbsoluteFill>
+      <Background />
+
+      <Sequence from={HOOK_FROM} durationInFrames={HOOK_FRAMES}>
+        <Hook {...props} />
+      </Sequence>
+
+      <Sequence from={DEAL_FROM} durationInFrames={DEAL_FRAMES}>
+        <Deal {...props} />
+      </Sequence>
+
+      <Sequence from={CTA_FROM} durationInFrames={CTA_FRAMES}>
+        <CTA />
+      </Sequence>
+    </AbsoluteFill>
+  );
+};
+
+export default DealVideo;
