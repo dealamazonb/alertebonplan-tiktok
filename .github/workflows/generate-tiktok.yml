@@ -1,84 +1,94 @@
-name: Generate Social Video V28
+name: Generate Social Video V29
 
 on:
   workflow_dispatch:
     inputs:
-      title: {description: "Nom du produit", required: true}
-      current_price: {description: "Prix actuel", required: true}
-      original_price: {description: "Ancien prix", required: false}
-      discount: {description: "Réduction", required: false}
-      image_url: {description: "Image produit", required: false}
-      affiliate_url: {description: "Lien affilié", required: true}
+      title:
+        description: "Titre du produit"
+        required: true
+        default: "Sac Eastpak Reader M"
+      currentPrice:
+        description: "Prix actuel"
+        required: true
+        default: "34,09 €"
+      originalPrice:
+        description: "Ancien prix vérifié"
+        required: false
+        default: ""
+      discount:
+        description: "Réduction vérifiée"
+        required: false
+        default: ""
+      imageUrl:
+        description: "URL image produit"
+        required: false
+        default: ""
+      affiliateUrl:
+        description: "Lien affilié"
+        required: false
+        default: ""
   repository_dispatch:
     types: [generate_tiktok]
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      DEAL_TITLE: ${{ github.event.client_payload.title || inputs.title }}
-      CURRENT_PRICE: ${{ github.event.client_payload.currentPrice || inputs.current_price }}
-      ORIGINAL_PRICE: ${{ github.event.client_payload.originalPrice || inputs.original_price }}
-      DISCOUNT: ${{ github.event.client_payload.discount || inputs.discount }}
-      IMAGE_URL: ${{ github.event.client_payload.imageUrl || inputs.image_url }}
-      AFFILIATE_URL: ${{ github.event.client_payload.affiliateUrl || inputs.affiliate_url }}
-      TTS_VOICE: fr-FR-HenriNeural
-      TTS_RATE: "+4%"
-      TTS_PITCH: "+0Hz"
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: "22"
-      - uses: actions/setup-python@v5
+          node-version: 22
+          cache: npm
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
 
-      - name: Installer les dépendances
-        run: |
-          set -euo pipefail
-          npm install --no-audit --no-fund
-          python -m pip install --upgrade pip
-          python -m pip install edge-tts==7.2.8
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg file
+      - name: Installer les dépendances Node
+        run: npm install
 
-      - name: Valider les données
-        run: |
-          set -euo pipefail
-          test -n "${DEAL_TITLE:-}" || (echo "::error::Titre manquant" && exit 1)
-          test -n "${CURRENT_PRICE:-}" || (echo "::error::Prix actuel manquant" && exit 1)
-          test -n "${AFFILIATE_URL:-}" || (echo "::error::Lien affilié manquant" && exit 1)
-          echo "Le deal sera toujours transformé en vidéo, avec ou sans ancien prix."
+      - name: Installer les dépendances Python
+        run: pip install -r requirements.txt
 
-      - name: Créer props.json
+      - name: Préparer les données
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_PAYLOAD: ${{ toJson(github.event.client_payload) }}
+          INPUT_TITLE: ${{ inputs.title }}
+          INPUT_CURRENT_PRICE: ${{ inputs.currentPrice }}
+          INPUT_ORIGINAL_PRICE: ${{ inputs.originalPrice }}
+          INPUT_DISCOUNT: ${{ inputs.discount }}
+          INPUT_IMAGE_URL: ${{ inputs.imageUrl }}
+          INPUT_AFFILIATE_URL: ${{ inputs.affiliateUrl }}
         run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const localImage = fs.existsSync('public/product-image.jpg') ? 'product-image.jpg' : 'product-image.svg';
-          const verified = Boolean(String(process.env.ORIGINAL_PRICE || '').trim() && String(process.env.DISCOUNT || '').trim());
-          const props = {
-            title: process.env.DEAL_TITLE || '',
-            shortTitle: '',
-            currentPrice: process.env.CURRENT_PRICE || '',
-            originalPrice: verified ? (process.env.ORIGINAL_PRICE || '') : '',
-            discount: verified ? (process.env.DISCOUNT || '') : '',
-            imageUrl: localImage,
-            affiliateUrl: process.env.AFFILIATE_URL || '',
-            format: verified ? 'verified_drop' : 'price_only'
-          };
-          fs.writeFileSync('props.json', JSON.stringify(props, null, 2));
-          console.log(props);
-          NODE
+          python - <<'PY'
+          import json
+          import os
 
-      - name: Générer les légendes
-        run: |
-          python generate_caption.py
-          test -s tiktok_caption.txt
-          test -s facebook_caption.txt
+          if os.environ.get("EVENT_NAME") == "repository_dispatch":
+              raw = os.environ.get("DISPATCH_PAYLOAD") or "{}"
+              props = json.loads(raw)
+          else:
+              props = {
+                  "title": os.environ.get("INPUT_TITLE", ""),
+                  "currentPrice": os.environ.get("INPUT_CURRENT_PRICE", ""),
+                  "originalPrice": os.environ.get("INPUT_ORIGINAL_PRICE", ""),
+                  "discount": os.environ.get("INPUT_DISCOUNT", ""),
+                  "imageUrl": os.environ.get("INPUT_IMAGE_URL", ""),
+                  "affiliateUrl": os.environ.get("INPUT_AFFILIATE_URL", ""),
+              }
+
+          with open("props.json", "w", encoding="utf-8") as f:
+              json.dump(props, f, ensure_ascii=False, indent=2)
+
+          print(json.dumps(props, ensure_ascii=False, indent=2))
+          PY
 
       - name: Préparer l’image produit
         shell: bash
@@ -87,10 +97,8 @@ jobs:
 
           IMAGE_URL=$(python - <<'PY'
           import json
-
           with open("props.json", "r", encoding="utf-8") as f:
               props = json.load(f)
-
           print(props.get("imageUrl", ""))
           PY
           )
@@ -98,26 +106,16 @@ jobs:
           echo "URL image : $IMAGE_URL"
 
           if [ -n "$IMAGE_URL" ]; then
-            curl --fail \
-              --location \
-              --retry 3 \
-              --retry-delay 2 \
-              --connect-timeout 20 \
-              --max-time 60 \
-              --user-agent "Mozilla/5.0" \
-              "$IMAGE_URL" \
-              --output public/product-image.jpg || true
+            curl --fail               --location               --retry 3               --retry-delay 2               --connect-timeout 20               --max-time 60               --user-agent "Mozilla/5.0"               "$IMAGE_URL"               --output public/product-image.jpg || true
           fi
 
           if [ ! -s public/product-image.jpg ]; then
-            echo "Image produit indisponible, création d’une image de secours."
-
+            echo "Image indisponible : création d’une image de secours."
             python - <<'PY'
           from PIL import Image, ImageDraw
 
           image = Image.new("RGB", (1000, 1000), "white")
           draw = ImageDraw.Draw(image)
-
           draw.rounded_rectangle(
               (60, 60, 940, 940),
               radius=60,
@@ -125,20 +123,24 @@ jobs:
               outline=(220, 225, 232),
               width=6,
           )
-
           draw.text(
               (500, 500),
               "AlerteBonPlan",
               fill=(20, 47, 76),
               anchor="mm",
           )
-
           image.save("public/product-image.jpg", quality=95)
           PY
           fi
 
           file public/product-image.jpg
           ls -lh public/product-image.jpg
+
+      - name: Générer les légendes
+        run: |
+          python generate_caption.py
+          test -s tiktok_caption.txt
+          test -s facebook_caption.txt
 
       - name: Générer la vidéo
         run: >
@@ -152,68 +154,17 @@ jobs:
           --pixel-format=yuv420p
           --concurrency=2
 
-      - name: Finaliser et contrôler
+      - name: Vérifier la vidéo
         run: |
-          ffmpeg -hide_banner -loglevel warning -y -i video_raw.mp4 \
-            -filter:a "loudnorm=I=-15:LRA=7:TP=-1.5,alimiter=limit=0.95" \
-            -c:v libx264 -preset medium -crf 15 -profile:v high -level:v 4.1 \
-            -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a 192k -ar 48000 -ac 2 \
-            video_tiktok.mp4
-          test -s video_tiktok.mp4
-          WIDTH=$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 video_tiktok.mp4)
-          HEIGHT=$(ffprobe -v error -select_streams v:0 -show_entries stream=height -of csv=p=0 video_tiktok.mp4)
-          DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 video_tiktok.mp4)
-          echo "Résolution: ${WIDTH}x${HEIGHT} | Durée: ${DURATION}s"
-          [ "$WIDTH" = "1080" ] && [ "$HEIGHT" = "1920" ]
+          test -s video_raw.mp4
+          ffprobe -v error             -select_streams v:0             -show_entries stream=width,height,r_frame_rate             -of default=noprint_wrappers=1             video_raw.mp4
 
       - name: Conserver la vidéo
         uses: actions/upload-artifact@v4
         with:
-          name: video-alertebonplan-${{ github.run_number }}
+          name: alertebonplan-video
           path: |
-            video_tiktok.mp4
+            video_raw.mp4
             tiktok_caption.txt
             facebook_caption.txt
-            props.json
           retention-days: 7
-          if-no-files-found: error
-
-      - name: Envoyer la vidéo sur Telegram
-        run: |
-          set -euo pipefail
-          curl --fail-with-body --request POST \
-            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendVideo" \
-            --form "chat_id=${{ secrets.TIKTOK_CHANNEL_ID }}" \
-            --form "video=@video_tiktok.mp4" \
-            --form "supports_streaming=true" \
-            --form-string "caption=🎬 Vidéo prête à publier sur TikTok."
-
-      - name: Envoyer la légende TikTok
-        run: |
-          CAPTION="$(cat tiktok_caption.txt)"
-          curl --fail-with-body --request POST \
-            "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            --form "chat_id=${{ secrets.TIKTOK_CHANNEL_ID }}" \
-            --form "disable_web_page_preview=true" \
-            --form-string "text=${CAPTION}"
-
-      - name: Publier le Réel Facebook
-        continue-on-error: true
-        env:
-          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
-          FACEBOOK_GRAPH_VERSION: ${{ secrets.FACEBOOK_GRAPH_VERSION }}
-        run: |
-          set -euo pipefail
-          if [ -z "${FACEBOOK_PAGE_ACCESS_TOKEN:-}" ]; then
-            echo "Publication Facebook ignorée : secret absent."
-            exit 0
-          fi
-          GRAPH_VERSION="${FACEBOOK_GRAPH_VERSION:-v25.0}"
-          CAPTION="$(cat facebook_caption.txt)"
-          START=$(curl -fsS -X POST -G --data-urlencode "access_token=${FACEBOOK_PAGE_ACCESS_TOKEN}" --data-urlencode "upload_phase=start" "https://graph.facebook.com/${GRAPH_VERSION}/me/video_reels")
-          VIDEO_ID=$(printf '%s' "$START" | python -c 'import json,sys; print(json.load(sys.stdin)["video_id"])')
-          UPLOAD_URL=$(printf '%s' "$START" | python -c 'import json,sys; print(json.load(sys.stdin)["upload_url"])')
-          SIZE=$(stat -c%s video_tiktok.mp4)
-          curl -fsS -X POST "$UPLOAD_URL" -H "Authorization: OAuth ${FACEBOOK_PAGE_ACCESS_TOKEN}" -H "offset: 0" -H "file_size: ${SIZE}" -H "Content-Type: application/octet-stream" --data-binary @video_tiktok.mp4 >/dev/null
-          curl -fsS -X POST -G --data-urlencode "access_token=${FACEBOOK_PAGE_ACCESS_TOKEN}" --data-urlencode "video_id=${VIDEO_ID}" --data-urlencode "upload_phase=finish" --data-urlencode "video_state=PUBLISHED" --data-urlencode "description=${CAPTION}" "https://graph.facebook.com/${GRAPH_VERSION}/me/video_reels" >/dev/null
-          echo "Réel Facebook publié."
