@@ -3,11 +3,11 @@ import re
 from pathlib import Path
 
 
-def clean(value: str) -> str:
+def clean(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
-def smart_product_title(value: str, max_length: int = 70) -> str:
+def smart_product_title(value: object, max_length: int = 70) -> str:
     title = clean(value)
 
     if len(title) <= max_length:
@@ -38,24 +38,27 @@ def load_props() -> dict:
 
 
 def build_caption(props: dict) -> str:
-    title = smart_product_title(props.get("title", "Bon plan Amazon"))
+    title = smart_product_title(
+        props.get("title") or "Bon plan Amazon"
+    )
     current_price = clean(props.get("currentPrice"))
     original_price = clean(props.get("originalPrice"))
     discount = clean(props.get("discount"))
 
     lines = [f"🔥 {title}"]
 
-    if current_price:
-        if original_price and discount:
-            lines.append(
-                f"💰 {current_price} au lieu de {original_price} ({discount})"
-            )
-        else:
-            lines.append(f"💰 Prix repéré : {current_price}")
+    if current_price and original_price and discount:
+        lines.append(
+            f"💰 {current_price} au lieu de {original_price} ({discount})"
+        )
+    elif current_price:
+        lines.append(f"💰 Prix actuel : {current_price}")
 
-    lines.append("")
-    lines.append("D’autres bons plans sont disponibles sur mon profil.")
-    lines.append("#BonPlan #Amazon #Promo")
+    lines.extend([
+        "",
+        "D’autres bons plans sont disponibles sur mon profil.",
+        "#BonPlan #Amazon #Promo",
+    ])
 
     return "\n".join(lines)
 
