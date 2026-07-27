@@ -500,6 +500,57 @@ jobs:
           const isVeryHotDeal =
             dealTemperature !== null &&
             dealTemperature >= 300;
+          /*
+           * Filtre spécifique aux Réels Facebook :
+           *
+           * - produit populaire : réduction minimale de 30 %
+           * - produit non prioritaire : réduction minimale de 55 %
+           * - offre Dealabs : température minimale de 500°
+           */
+
+          const facebookEligible =
+            (
+              dealTemperature !== null &&
+              dealTemperature >= 500
+            ) ||
+            (
+              isInteresting &&
+              discount !== null &&
+              discount >= 30
+            ) ||
+            (
+              discount !== null &&
+              discount >= 55
+            );
+
+          let facebookReason = '';
+
+          if (
+            dealTemperature !== null &&
+            dealTemperature >= 500
+          ) {
+            facebookReason =
+              `offre Dealabs très virale : ` +
+              `${dealTemperature.toFixed(0)}°`;
+          } else if (
+            isInteresting &&
+            discount !== null &&
+            discount >= 30
+          ) {
+            facebookReason =
+              `produit populaire avec ` +
+              `${discount.toFixed(0)} % de réduction`;
+          } else if (
+            discount !== null &&
+            discount >= 55
+          ) {
+            facebookReason =
+              `réduction exceptionnelle de ` +
+              `${discount.toFixed(0)} %`;
+          } else {
+            facebookReason =
+              `offre insuffisamment virale pour Facebook`;
+          }
 
           let eligible = false;
           let reason = '';
@@ -616,6 +667,8 @@ jobs:
                 }`
               ),
               `very_hot=${isVeryHotDeal}`,
+              `facebook_eligible=${facebookEligible}`,
+              `facebook_reason=${facebookReason}`,
               ''
             ].join('\n')
           );
@@ -1504,7 +1557,9 @@ jobs:
           ls -lh video_tiktok.mp4
 
       - name: Publier le Réel Facebook
-        if: steps.eligibility.outputs.eligible == 'true'
+        if: >
+          steps.eligibility.outputs.eligible == 'true' &&
+          steps.eligibility.outputs.facebook_eligible == 'true'
         shell: bash
         env:
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
