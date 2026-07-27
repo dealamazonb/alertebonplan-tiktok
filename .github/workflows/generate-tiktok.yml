@@ -105,8 +105,6 @@ jobs:
           --codec=h264
           --crf=14
           --pixel-format=yuv420p
-          --audio-codec=aac
-          --audio-bitrate=192k
           --concurrency=2
 
       - name: Finaliser et contrôler
