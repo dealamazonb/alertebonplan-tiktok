@@ -269,7 +269,7 @@ const CTA = () => {
           opacity: appear,
         }}
       >
-        sur mon profil
+        sur mon Telegram en bio
       </div>
 
       <div
