@@ -54,21 +54,6 @@ jobs:
           test -n "${AFFILIATE_URL:-}" || (echo "::error::Lien affilié manquant" && exit 1)
           echo "Le deal sera toujours transformé en vidéo, avec ou sans ancien prix."
 
-      - name: Préparer l'image produit
-        run: |
-          set -euo pipefail
-          mkdir -p public
-          rm -f public/product-image.jpg public/product-image.svg
-          if [ -n "${IMAGE_URL:-}" ] && curl -LfsS --max-time 25 --retry 2 -A "Mozilla/5.0" -o public/product-image.jpg "$IMAGE_URL"; then
-            MIME="$(file -b --mime-type public/product-image.jpg || true)"
-            [[ "$MIME" == image/* ]] || rm -f public/product-image.jpg
-          fi
-          if [ ! -s public/product-image.jpg ]; then
-            cat > public/product-image.svg <<'SVG'
-          <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080"><rect width="1080" height="1080" rx="80" fill="#111827"/><text x="540" y="500" text-anchor="middle" fill="#ff9900" font-size="80" font-family="Arial" font-weight="900">ALERTE</text><text x="540" y="610" text-anchor="middle" fill="#ffffff" font-size="80" font-family="Arial" font-weight="900">BON PLAN</text></svg>
-          SVG
-          fi
-
       - name: Créer props.json
         run: |
           node <<'NODE'
@@ -94,6 +79,66 @@ jobs:
           python generate_caption.py
           test -s tiktok_caption.txt
           test -s facebook_caption.txt
+
+      - name: Préparer l’image produit
+        shell: bash
+        run: |
+          mkdir -p public
+
+          IMAGE_URL=$(python - <<'PY'
+          import json
+
+          with open("props.json", "r", encoding="utf-8") as f:
+              props = json.load(f)
+
+          print(props.get("imageUrl", ""))
+          PY
+          )
+
+          echo "URL image : $IMAGE_URL"
+
+          if [ -n "$IMAGE_URL" ]; then
+            curl --fail \
+              --location \
+              --retry 3 \
+              --retry-delay 2 \
+              --connect-timeout 20 \
+              --max-time 60 \
+              --user-agent "Mozilla/5.0" \
+              "$IMAGE_URL" \
+              --output public/product-image.jpg || true
+          fi
+
+          if [ ! -s public/product-image.jpg ]; then
+            echo "Image produit indisponible, création d’une image de secours."
+
+            python - <<'PY'
+          from PIL import Image, ImageDraw
+
+          image = Image.new("RGB", (1000, 1000), "white")
+          draw = ImageDraw.Draw(image)
+
+          draw.rounded_rectangle(
+              (60, 60, 940, 940),
+              radius=60,
+              fill=(245, 247, 250),
+              outline=(220, 225, 232),
+              width=6,
+          )
+
+          draw.text(
+              (500, 500),
+              "AlerteBonPlan",
+              fill=(20, 47, 76),
+              anchor="mm",
+          )
+
+          image.save("public/product-image.jpg", quality=95)
+          PY
+          fi
+
+          file public/product-image.jpg
+          ls -lh public/product-image.jpg
 
       - name: Générer la vidéo
         run: >
