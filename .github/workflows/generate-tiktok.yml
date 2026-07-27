@@ -142,7 +142,7 @@ jobs:
           test -s facebook_caption.txt
 
       - name: Générer la vidéo
-        run: >
+        run: |
           npx remotion render
           src/index.jsx
           DealVideo
@@ -153,10 +153,19 @@ jobs:
           --pixel-format=yuv420p
           --concurrency=2
 
+      - name: Installer FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Vérifier la vidéo
         run: |
           test -s video_raw.mp4
-          ffprobe -v error             -select_streams v:0             -show_entries stream=width,height,r_frame_rate             -of default=noprint_wrappers=1             video_raw.mp4
+          ffprobe -v error \
+            -select_streams v:0 \
+            -show_entries stream=width,height,r_frame_rate \
+            -of default=noprint_wrappers=1 \
+            video_raw.mp4
 
       - name: Conserver la vidéo
         uses: actions/upload-artifact@v4
