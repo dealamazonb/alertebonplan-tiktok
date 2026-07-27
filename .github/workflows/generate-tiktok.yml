@@ -142,16 +142,7 @@ jobs:
           test -s facebook_caption.txt
 
       - name: Générer la vidéo
-        run: |
-          npx remotion render
-          src/index.jsx
-          DealVideo
-          video_raw.mp4
-          --props=props.json
-          --codec=h264
-          --crf=14
-          --pixel-format=yuv420p
-          --concurrency=2
+        run: npx remotion render src/index.jsx DealVideo video_raw.mp4 --props=props.json --codec=h264 --crf=14 --pixel-format=yuv420p --concurrency=2
 
       - name: Installer FFmpeg
         run: |
