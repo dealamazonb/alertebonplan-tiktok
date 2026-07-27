@@ -722,6 +722,18 @@ jobs:
               `⏭️ Vidéo ignorée : ${reason}.`
             );
           }
+
+          console.log(
+            `Réel Facebook autorisé : ${
+              facebookEligible
+                ? 'oui'
+                : 'non'
+            }`
+          );
+
+          console.log(
+            `Raison Facebook : ${facebookReason}`
+          );
           NODE
 
       - name: Préparer l'image produit
