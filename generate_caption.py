@@ -2,44 +2,74 @@ import json
 import re
 from pathlib import Path
 
-from generate_voice import clean, smart_product_title
+
+def clean(value: str) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
-def category_hashtag(title: str) -> str:
-    normalized = title.lower()
-    groups = [
-        (("ssd", "rtx", "ryzen", "pc", "clavier", "souris"), "#HighTech"),
-        (("iphone", "smartphone", "galaxy", "pixel"), "#Smartphone"),
-        (("aspirateur", "airfryer", "friteuse", "robot", "cuisine"), "#Maison"),
-        (("lego", "jouet", "pokemon", "playmobil"), "#Jouets"),
-        (("perceuse", "visseuse", "bosch", "makita"), "#Bricolage"),
-    ]
-    for keywords, hashtag in groups:
-        if any(word in normalized for word in keywords):
-            return hashtag
-    return "#BonPlanAmazon"
+def smart_product_title(value: str, max_length: int = 70) -> str:
+    title = clean(value)
+
+    if len(title) <= max_length:
+        return title
+
+    shortened = title[: max_length + 1]
+    last_space = shortened.rfind(" ")
+
+    if last_space > 25:
+        shortened = shortened[:last_space]
+
+    return shortened.rstrip(" ,;:-") + "…"
+
+
+def load_props() -> dict:
+    props_path = Path("props.json")
+
+    if not props_path.exists():
+        raise FileNotFoundError("Le fichier props.json est introuvable.")
+
+    with props_path.open("r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    if not isinstance(data, dict):
+        raise ValueError("props.json doit contenir un objet JSON.")
+
+    return data
+
+
+def build_caption(props: dict) -> str:
+    title = smart_product_title(props.get("title", "Bon plan Amazon"))
+    current_price = clean(props.get("currentPrice"))
+    original_price = clean(props.get("originalPrice"))
+    discount = clean(props.get("discount"))
+
+    lines = [f"🔥 {title}"]
+
+    if current_price:
+        if original_price and discount:
+            lines.append(
+                f"💰 {current_price} au lieu de {original_price} ({discount})"
+            )
+        else:
+            lines.append(f"💰 Prix repéré : {current_price}")
+
+    lines.append("")
+    lines.append("D’autres bons plans sont disponibles sur mon profil.")
+    lines.append("#BonPlan #Amazon #Promo")
+
+    return "\n".join(lines)
 
 
 def main() -> None:
-    data = json.loads(Path("props.json").read_text(encoding="utf-8"))
-    title = smart_product_title(data.get("title"), max_length=62)
-    current = clean(data.get("currentPrice"))
-    original = clean(data.get("originalPrice"))
-    discount = clean(data.get("discount"))
-    affiliate_url = clean(data.get("affiliateUrl"))
+    props = load_props()
+    caption = build_caption(props)
 
-    tiktok = [f"{title} à {current} 👀"]
-    if original and discount:
-        tiktok.append(f"Avant {original} • {discount}")
-    tiktok.extend(["", "D'autres bons plans arrivent chaque jour.", "#BonPlan #Amazon " + category_hashtag(title)])
+    Path("caption.txt").write_text(
+        caption,
+        encoding="utf-8",
+    )
 
-    facebook = [f"🔥 {title}", "", f"Prix actuel : {current}"]
-    if original and discount:
-        facebook.extend([f"Ancien prix : {original}", f"Réduction : {discount}"])
-    facebook.extend(["", affiliate_url, "", "Lien affilié : une commission peut être perçue sans coût supplémentaire.", "#BonPlan #Amazon " + category_hashtag(title)])
-
-    Path("tiktok_caption.txt").write_text("\n".join(tiktok), encoding="utf-8")
-    Path("facebook_caption.txt").write_text("\n".join(facebook), encoding="utf-8")
+    print(caption)
 
 
 if __name__ == "__main__":
