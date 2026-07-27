@@ -14,7 +14,6 @@ export const RemotionRoot = () => {
       height={1920}
       defaultProps={{
         title: 'Bon plan Amazon',
-        shortTitle: '',
         currentPrice: '34,09 €',
         originalPrice: '',
         discount: '',
