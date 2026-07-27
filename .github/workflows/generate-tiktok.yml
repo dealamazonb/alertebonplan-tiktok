@@ -518,12 +518,36 @@ jobs:
            *   vidéo uniquement à partir de 40 %.
            */
 
-          if (isVeryHotDeal) {
+          /*
+           * Filtre viral Facebook :
+           *
+           * - Dealabs : au moins 500°
+           * - Produit populaire : au moins 30 % de réduction
+           * - Produit non prioritaire : au moins 55 % de réduction
+           *
+           * Les autres offres ne génèrent aucun Réel.
+           */
+
+          const isViralHotDeal =
+            dealTemperature !== null &&
+            dealTemperature >= 500;
+
+          const isViralPopularProduct =
+            isInteresting &&
+            discount !== null &&
+            discount >= 30;
+
+          const isExceptionalDiscount =
+            discount !== null &&
+            discount >= 55;
+
+          if (isViralHotDeal) {
             eligible = true;
+
             reason =
-              `offre Dealabs très chaude ` +
+              `offre Dealabs virale ` +
               `(${dealTemperature.toFixed(0)}°)`;
-          } else if (isInteresting) {
+          } else if (isViralPopularProduct) {
             eligible = true;
 
             const labels = [
@@ -533,31 +557,24 @@ jobs:
               )
             ];
 
-            reason = discount === null
-              ? `article populaire (${labels.join(', ')})`
-              : (
-                  `article populaire ` +
-                  `(${labels.join(', ')}) ` +
-                  `avec ${discount.toFixed(2)} % ` +
-                  `de réduction`
-                );
-          } else if (
-            discount !== null &&
-            discount >= 40
-          ) {
+            reason =
+              `produit populaire ` +
+              `(${labels.join(', ')}) ` +
+              `avec ${discount.toFixed(0)} % de réduction`;
+          } else if (isExceptionalDiscount) {
             eligible = true;
 
             reason =
-              `article non prioritaire mais forte ` +
-              `réduction de ${discount.toFixed(2)} %`;
+              `réduction exceptionnelle de ` +
+              `${discount.toFixed(0)} %`;
           } else if (discount === null) {
             reason =
-              `article non prioritaire et ` +
-              `pourcentage de réduction introuvable`;
+              `réduction introuvable : ` +
+              `offre non publiée sur Facebook`;
           } else {
             reason =
-              `article non prioritaire avec seulement ` +
-              `${discount.toFixed(2)} % de réduction`;
+              `offre insuffisamment virale : ` +
+              `${discount.toFixed(0)} % de réduction`;
           }
 
           const normalizedDiscount =
