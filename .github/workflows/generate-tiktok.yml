@@ -167,3 +167,19 @@ jobs:
             tiktok_caption.txt
             facebook_caption.txt
           retention-days: 7
+
+      - name: Envoyer la vidéo sur Telegram
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TIKTOK_CHANNEL_ID: ${{ secrets.TIKTOK_CHANNEL_ID }}
+        run: |
+          CAPTION=$(cat tiktok_caption.txt)
+
+          curl --fail \
+            --request POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo" \
+            --form "chat_id=${TIKTOK_CHANNEL_ID}" \
+            --form "video=@video_raw.mp4" \
+            --form-string "caption=${CAPTION}" \
+            --form "supports_streaming=true"
