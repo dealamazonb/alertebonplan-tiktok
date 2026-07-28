@@ -1,4 +1,4 @@
-name: Generate Social Video V29
+name: Generate Social Video V30
 
 on:
   workflow_dispatch:
@@ -27,6 +27,11 @@ on:
         description: "Lien affilié"
         required: false
         default: ""
+      facebookReelCandidate:
+        description: "Publier aussi en Reel Facebook"
+        required: false
+        type: boolean
+        default: false
   repository_dispatch:
     types: [generate_tiktok]
 
@@ -55,6 +60,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Préparer les données
+        id: prepare
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -65,6 +71,7 @@ jobs:
           INPUT_DISCOUNT: ${{ inputs.discount }}
           INPUT_IMAGE_URL: ${{ inputs.imageUrl }}
           INPUT_AFFILIATE_URL: ${{ inputs.affiliateUrl }}
+          INPUT_FACEBOOK_REEL_CANDIDATE: ${{ inputs.facebookReelCandidate }}
         run: |
           python - <<'PY'
           import json
@@ -81,10 +88,33 @@ jobs:
                   "discount": os.environ.get("INPUT_DISCOUNT", ""),
                   "imageUrl": os.environ.get("INPUT_IMAGE_URL", ""),
                   "affiliateUrl": os.environ.get("INPUT_AFFILIATE_URL", ""),
+                  "facebookReelCandidate":
+                      os.environ.get("INPUT_FACEBOOK_REEL_CANDIDATE", "false"),
               }
+
+          raw_candidate = props.get("facebookReelCandidate", False)
+
+          if isinstance(raw_candidate, bool):
+              facebook_reel_candidate = raw_candidate
+          else:
+              facebook_reel_candidate = (
+                  str(raw_candidate).strip().lower() == "true"
+              )
+
+          props["facebookReelCandidate"] = facebook_reel_candidate
 
           with open("props.json", "w", encoding="utf-8") as f:
               json.dump(props, f, ensure_ascii=False, indent=2)
+
+          github_output = os.environ.get("GITHUB_OUTPUT")
+
+          if github_output:
+              with open(github_output, "a", encoding="utf-8") as output:
+                  output.write(
+                      "facebook_reel_candidate="
+                      + ("true" if facebook_reel_candidate else "false")
+                      + "\n"
+                  )
 
           print(json.dumps(props, ensure_ascii=False, indent=2))
           PY
@@ -169,17 +199,135 @@ jobs:
           retention-days: 7
 
       - name: Envoyer la vidéo sur Telegram
-        if: always()
+        if: success()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TIKTOK_CHANNEL_ID: ${{ secrets.TIKTOK_CHANNEL_ID }}
         run: |
           CAPTION=$(cat tiktok_caption.txt)
 
-          curl --fail \
+          curl --fail-with-body \
             --request POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo" \
             --form "chat_id=${TIKTOK_CHANNEL_ID}" \
             --form "video=@video_raw.mp4" \
             --form-string "caption=${CAPTION}" \
             --form "supports_streaming=true"
+
+      - name: Publier le Reel Facebook
+        if: steps.prepare.outputs.facebook_reel_candidate == 'true'
+        shell: bash
+        env:
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
+          FACEBOOK_GRAPH_VERSION: "v25.0"
+        run: |
+          set -euo pipefail
+
+          if [ -z "${FACEBOOK_PAGE_ACCESS_TOKEN:-}" ]; then
+            echo "::error::Le secret FACEBOOK_PAGE_ACCESS_TOKEN est manquant."
+            exit 1
+          fi
+
+          test -s video_raw.mp4
+          test -s facebook_caption.txt
+
+          TITLE=$(python - <<'PY'
+          import json
+
+          with open("props.json", "r", encoding="utf-8") as f:
+              props = json.load(f)
+
+          print(str(props.get("title", "Bon plan Amazon")).strip())
+          PY
+          )
+
+          DESCRIPTION=$(cat facebook_caption.txt)
+
+          echo "Création de la session Reel Facebook…"
+
+          CREATE_RESPONSE=$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --get \
+            "https://graph.facebook.com/${FACEBOOK_GRAPH_VERSION}/me/video_reels" \
+            --data-urlencode "access_token=${FACEBOOK_PAGE_ACCESS_TOKEN}" \
+            --data-urlencode "upload_phase=start")
+
+          echo "$CREATE_RESPONSE"
+
+          VIDEO_ID=$(printf '%s' "$CREATE_RESPONSE" | python -c '
+          import json
+          import sys
+
+          data = json.load(sys.stdin)
+          value = data.get("video_id")
+
+          if not value:
+              raise SystemExit("video_id absent de la réponse Meta")
+
+          print(value)
+          ')
+
+          UPLOAD_URL=$(printf '%s' "$CREATE_RESPONSE" | python -c '
+          import json
+          import sys
+
+          data = json.load(sys.stdin)
+          value = data.get("upload_url")
+
+          if not value:
+              raise SystemExit("upload_url absente de la réponse Meta")
+
+          print(value)
+          ')
+
+          FILE_SIZE=$(stat -c%s video_raw.mp4)
+
+          echo "Envoi de la vidéo vers Meta — ${FILE_SIZE} octets…"
+
+          UPLOAD_RESPONSE=$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            "$UPLOAD_URL" \
+            --header "Authorization: OAuth ${FACEBOOK_PAGE_ACCESS_TOKEN}" \
+            --header "offset: 0" \
+            --header "file_size: ${FILE_SIZE}" \
+            --header "Content-Type: application/octet-stream" \
+            --data-binary "@video_raw.mp4")
+
+          echo "$UPLOAD_RESPONSE"
+
+          printf '%s' "$UPLOAD_RESPONSE" | python -c '
+          import json
+          import sys
+
+          data = json.load(sys.stdin)
+
+          if data.get("success") is not True:
+              raise SystemExit("Meta a refusé l’envoi de la vidéo")
+          '
+
+          echo "Publication du Reel Facebook…"
+
+          PUBLISH_RESPONSE=$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --get \
+            "https://graph.facebook.com/${FACEBOOK_GRAPH_VERSION}/me/video_reels" \
+            --data-urlencode "access_token=${FACEBOOK_PAGE_ACCESS_TOKEN}" \
+            --data-urlencode "video_id=${VIDEO_ID}" \
+            --data-urlencode "upload_phase=finish" \
+            --data-urlencode "video_state=PUBLISHED" \
+            --data-urlencode "title=${TITLE}" \
+            --data-urlencode "description=${DESCRIPTION}")
+
+          echo "$PUBLISH_RESPONSE"
+
+          printf '%s' "$PUBLISH_RESPONSE" | python -c '
+          import json
+          import sys
+
+          data = json.load(sys.stdin)
+
+          if data.get("success") is not True:
+              raise SystemExit("Meta n’a pas confirmé la publication du Reel")
+          '
+
+          echo "Reel Facebook publié — video_id=${VIDEO_ID}"
