@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   AbsoluteFill,
+  Audio,
   Img,
   Sequence,
   interpolate,
@@ -34,19 +35,47 @@ const fadeWindow = (frame, duration, fade = 10) =>
     clamp
   );
 
+
+/*
+ * V33 AUDIO
+ * Extrait choisi automatiquement pour obtenir un impact musical
+ * au passage du hook vers la scène produit.
+ */
+const MUSIC_START_FRAME = 384; // 12,8 secondes dans le morceau source.
+
+const musicVolume = (frame) => {
+  if (frame < 8) {
+    return interpolate(frame, [0, 8], [0, 0.34], clamp);
+  }
+
+  if (frame < HOOK_FRAMES) {
+    return 0.34;
+  }
+
+  if (frame < CTA_FROM) {
+    return 0.42;
+  }
+
+  return interpolate(
+    frame,
+    [CTA_FROM, CTA_FROM + CTA_FRAMES - 8, CTA_FROM + CTA_FRAMES],
+    [0.34, 0.30, 0],
+    clamp
+  );
+};
+
 const BrandBackground = () => {
   const frame = useCurrentFrame();
 
-  const streakA = interpolate(frame, [0, 270], [-260, 250], clamp);
-  const streakB = interpolate(frame, [0, 270], [200, -160], clamp);
-  const glowPulse = 0.82 + Math.sin(frame / 10) * 0.08;
+  const streakA = interpolate(frame, [0, 270], [-320, 280], clamp);
+  const streakB = interpolate(frame, [0, 270], [260, -220], clamp);
 
   return (
     <AbsoluteFill
       style={{
         overflow: 'hidden',
         background:
-          'radial-gradient(circle at 50% 0%, #141414 0%, #070707 38%, #020202 75%, #000000 100%)',
+          'radial-gradient(circle at 50% 10%, #171717 0%, #090909 38%, #020202 72%, #000000 100%)',
       }}
     >
       <div
@@ -54,75 +83,72 @@ const BrandBackground = () => {
           position: 'absolute',
           inset: 0,
           background:
-            'radial-gradient(circle at 18% 26%, rgba(255,144,0,0.20), transparent 28%), radial-gradient(circle at 86% 78%, rgba(255,108,0,0.14), transparent 25%), radial-gradient(circle at 65% 32%, rgba(255,198,77,0.08), transparent 23%)',
-          opacity: glowPulse,
+            'radial-gradient(circle at 18% 30%, rgba(255,132,0,0.18), transparent 24%), radial-gradient(circle at 84% 74%, rgba(255,111,0,0.14), transparent 23%), radial-gradient(circle at 58% 16%, rgba(255,199,105,0.07), transparent 18%)',
         }}
       />
 
       <div
         style={{
           position: 'absolute',
-          left: -180 + streakA,
-          top: 130,
-          width: 620,
-          height: 6,
+          left: -120 + streakA,
+          top: 128,
+          width: 520,
+          height: 7,
           borderRadius: 999,
-          background: 'linear-gradient(90deg, transparent, rgba(255,124,0,0.95), transparent)',
-          transform: 'rotate(-13deg)',
-          boxShadow: '0 0 25px rgba(255,124,0,0.38)',
+          background: 'linear-gradient(90deg, transparent, rgba(255,132,0,0.95), transparent)',
+          transform: 'rotate(-14deg)',
+          boxShadow: '0 0 22px rgba(255,132,0,0.28)',
         }}
       />
       <div
         style={{
           position: 'absolute',
-          left: -120 + streakA * 0.9,
-          top: 178,
-          width: 450,
-          height: 4,
+          left: -30 + streakA * 0.84,
+          top: 186,
+          width: 360,
+          height: 5,
           borderRadius: 999,
-          background: 'linear-gradient(90deg, transparent, rgba(255,163,59,0.80), transparent)',
-          transform: 'rotate(-13deg)',
-          opacity: 0.8,
+          background: 'linear-gradient(90deg, transparent, rgba(255,180,92,0.82), transparent)',
+          transform: 'rotate(-14deg)',
         }}
       />
       <div
         style={{
           position: 'absolute',
-          right: -180 + streakB,
-          bottom: 160,
-          width: 690,
-          height: 6,
+          right: -160 + streakB,
+          bottom: 148,
+          width: 640,
+          height: 7,
           borderRadius: 999,
-          background: 'linear-gradient(90deg, transparent, rgba(255,124,0,0.90), transparent)',
-          transform: 'rotate(-13deg)',
-          boxShadow: '0 0 25px rgba(255,124,0,0.30)',
+          background: 'linear-gradient(90deg, transparent, rgba(255,132,0,0.92), transparent)',
+          transform: 'rotate(-14deg)',
+          boxShadow: '0 0 22px rgba(255,132,0,0.28)',
         }}
       />
       <div
         style={{
           position: 'absolute',
-          right: -80 + streakB * 0.84,
-          bottom: 118,
-          width: 420,
-          height: 4,
+          right: -110 + streakB * 0.8,
+          bottom: 112,
+          width: 400,
+          height: 5,
           borderRadius: 999,
-          background: 'linear-gradient(90deg, transparent, rgba(255,173,70,0.75), transparent)',
-          transform: 'rotate(-13deg)',
-          opacity: 0.7,
+          background: 'linear-gradient(90deg, transparent, rgba(255,180,92,0.80), transparent)',
+          transform: 'rotate(-14deg)',
         }}
       />
 
       <div
         style={{
           position: 'absolute',
-          top: 70,
+          top: 64,
           right: 56,
-          width: 180,
-          height: 180,
-          opacity: 0.18,
+          width: 190,
+          height: 190,
+          opacity: 0.16,
           backgroundImage:
-            'radial-gradient(circle, rgba(255,124,0,0.9) 1.7px, transparent 1.7px)',
-          backgroundSize: '18px 18px',
+            'radial-gradient(circle, rgba(255,132,0,0.95) 1.7px, transparent 1.7px)',
+          backgroundSize: '19px 19px',
           maskImage: 'linear-gradient(135deg, rgba(0,0,0,1), transparent 80%)',
         }}
       />
@@ -130,13 +156,13 @@ const BrandBackground = () => {
       <div
         style={{
           position: 'absolute',
-          left: 54,
-          bottom: 76,
+          left: 50,
+          bottom: 64,
           width: 240,
           height: 170,
-          opacity: 0.11,
+          opacity: 0.10,
           backgroundImage:
-            'radial-gradient(circle, rgba(255,158,53,0.95) 1.8px, transparent 1.8px)',
+            'radial-gradient(circle, rgba(255,163,64,0.95) 1.8px, transparent 1.8px)',
           backgroundSize: '18px 18px',
           maskImage: 'linear-gradient(135deg, rgba(0,0,0,1), transparent 85%)',
         }}
@@ -153,54 +179,98 @@ const BrandBackground = () => {
   );
 };
 
-const BellTagIcon = ({size = 74}) => (
+const LogoBadge = ({size = 190}) => (
   <div
     style={{
       width: size,
       height: size,
       borderRadius: '50%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
+      position: 'relative',
       background:
-        'linear-gradient(145deg, #ffcf47 0%, #ff9600 52%, #ff6a00 100%)',
+        'radial-gradient(circle at 50% 35%, #0f0f0f 0%, #080808 45%, #030303 78%, #010101 100%)',
+      border: `${Math.max(4, size * 0.036)}px solid #ff8e00`,
       boxShadow:
-        '0 12px 30px rgba(255,122,0,0.28), inset 0 1px 0 rgba(255,255,255,0.40)',
-      color: '#111',
-      fontSize: size * 0.42,
-      fontWeight: 900,
+        '0 18px 40px rgba(0,0,0,0.36), inset 0 0 0 6px rgba(255,255,255,0.04)',
+      overflow: 'hidden',
     }}
   >
-    🔔
-  </div>
-);
+    <div
+      style={{
+        position: 'absolute',
+        left: size * 0.14,
+        top: size * 0.14,
+        width: size * 0.23,
+        height: size * 0.23,
+        borderRadius: '50%',
+        background:
+          'linear-gradient(145deg, #ffd34f 0%, #ff9a00 58%, #ff6a00 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: size * 0.12,
+        boxShadow: '0 8px 22px rgba(255,120,0,0.24)',
+      }}
+    >
+      🔔
+    </div>
 
-const BrandTitle = ({compact = false}) => (
-  <div style={{display: 'flex', alignItems: 'center', gap: compact ? 16 : 20}}>
-    <BellTagIcon size={compact ? 60 : 74} />
-    <div style={{display: 'flex', flexDirection: 'column', lineHeight: 0.9}}>
+    <div
+      style={{
+        position: 'absolute',
+        right: size * 0.20,
+        top: size * 0.12,
+        width: size * 0.22,
+        height: size * 0.26,
+        borderRadius: size * 0.04,
+        background: '#0d0d0d',
+        border: `${Math.max(2, size * 0.015)}px solid #f5f5f5`,
+        transform: 'rotate(7deg)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#ffffff',
+        fontWeight: 900,
+        fontSize: size * 0.16,
+      }}
+    >
+      a
+    </div>
+
+    <div
+      style={{
+        position: 'absolute',
+        left: size * 0.06,
+        right: size * 0.06,
+        top: size * 0.48,
+        transform: 'rotate(-6deg)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+      }}
+    >
       <div
         style={{
-          fontSize: compact ? 44 : 58,
+          fontSize: size * 0.18,
+          lineHeight: 0.9,
           fontWeight: 950,
-          letterSpacing: -2.4,
           color: '#ffffff',
-          fontStyle: 'italic',
           textTransform: 'uppercase',
+          fontStyle: 'italic',
+          letterSpacing: -1.2,
         }}
       >
         Alerte
       </div>
       <div
         style={{
-          marginTop: compact ? 4 : 6,
-          fontSize: compact ? 48 : 62,
+          marginTop: size * 0.012,
+          fontSize: size * 0.2,
+          lineHeight: 0.9,
           fontWeight: 950,
-          letterSpacing: -2.6,
           color: '#ff9b00',
-          fontStyle: 'italic',
           textTransform: 'uppercase',
-          textShadow: '0 10px 28px rgba(255,126,0,0.20)',
+          fontStyle: 'italic',
+          letterSpacing: -1.4,
         }}
       >
         BonPlan
@@ -209,35 +279,63 @@ const BrandTitle = ({compact = false}) => (
   </div>
 );
 
-const TopSocialPill = () => (
+const BrandHeader = ({compact = false}) => (
+  <div style={{display: 'flex', alignItems: 'center', gap: compact ? 18 : 24}}>
+    <LogoBadge size={compact ? 92 : 122} />
+    <div style={{display: 'flex', flexDirection: 'column', lineHeight: 0.9}}>
+      <div
+        style={{
+          fontSize: compact ? 46 : 64,
+          fontWeight: 950,
+          color: '#ffffff',
+          textTransform: 'uppercase',
+          fontStyle: 'italic',
+          letterSpacing: -2.2,
+        }}
+      >
+        Alerte
+      </div>
+      <div
+        style={{
+          marginTop: compact ? 4 : 6,
+          fontSize: compact ? 52 : 72,
+          fontWeight: 950,
+          color: '#ff9800',
+          textTransform: 'uppercase',
+          fontStyle: 'italic',
+          letterSpacing: -2.4,
+          textShadow: '0 12px 28px rgba(255,123,0,0.18)',
+        }}
+      >
+        BonPlan
+      </div>
+    </div>
+  </div>
+);
+
+const InfoPill = ({children, orange = false}) => (
   <div
     style={{
       display: 'inline-flex',
       alignItems: 'center',
-      gap: 12,
+      gap: 10,
+      padding: '13px 18px',
       borderRadius: 999,
-      padding: '13px 22px',
-      border: '1px solid rgba(255,146,29,0.35)',
-      background:
-        'linear-gradient(180deg, rgba(255,130,16,0.16), rgba(255,130,16,0.08))',
-      color: '#ffe3b3',
-      fontSize: 20,
+      border: orange
+        ? '1px solid rgba(255,151,0,0.36)'
+        : '1px solid rgba(255,255,255,0.12)',
+      background: orange
+        ? 'linear-gradient(180deg, rgba(255,145,0,0.16), rgba(255,145,0,0.08))'
+        : 'linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))',
+      color: orange ? '#ffd792' : 'rgba(255,255,255,0.86)',
+      fontSize: 19,
       fontWeight: 850,
-      letterSpacing: 1.8,
+      letterSpacing: 1.3,
       textTransform: 'uppercase',
-      boxShadow: '0 12px 28px rgba(0,0,0,0.26)',
+      boxShadow: '0 10px 24px rgba(0,0,0,0.20)',
     }}
   >
-    <span
-      style={{
-        width: 10,
-        height: 10,
-        borderRadius: '50%',
-        background: '#ffad28',
-        boxShadow: '0 0 16px rgba(255,173,40,0.95)',
-      }}
-    />
-    Détecté à l’instant
+    {children}
   </div>
 );
 
@@ -250,8 +348,8 @@ const Hook = () => {
     fps,
     config: {
       damping: 14,
-      stiffness: 165,
-      mass: 0.82,
+      stiffness: 160,
+      mass: 0.84,
     },
   });
 
@@ -267,34 +365,34 @@ const Hook = () => {
     >
       <div
         style={{
-          transform: `translateY(${36 - intro * 36}px)`,
-          opacity: intro,
-        }}
-      >
-        <BrandTitle />
-      </div>
-
-      <div
-        style={{
-          marginTop: 52,
           transform: `translateY(${28 - intro * 28}px)`,
           opacity: intro,
         }}
       >
-        <TopSocialPill />
+        <BrandHeader />
       </div>
 
       <div
         style={{
-          marginTop: 36,
-          fontSize: 118,
+          marginTop: 44,
+          transform: `translateY(${24 - intro * 24}px)`,
+          opacity: intro,
+        }}
+      >
+        <InfoPill orange>Détecté à l’instant</InfoPill>
+      </div>
+
+      <div
+        style={{
+          marginTop: 34,
+          fontSize: 116,
           lineHeight: 0.88,
           fontWeight: 950,
           letterSpacing: -5,
           color: '#ffffff',
           textTransform: 'uppercase',
-          textShadow: '0 16px 44px rgba(0,0,0,0.52)',
-          transform: `translateY(${48 - intro * 48}px)`,
+          textShadow: '0 16px 42px rgba(0,0,0,0.52)',
+          transform: `translateY(${34 - intro * 34}px)`,
           opacity: intro,
         }}
       >
@@ -302,8 +400,8 @@ const Hook = () => {
         <br />
         <span
           style={{
-            color: '#ff9b00',
-            textShadow: `0 0 ${30 * titleGlow}px rgba(255,145,0,0.28)`,
+            color: '#ff9700',
+            textShadow: `0 0 ${28 * titleGlow}px rgba(255,145,0,0.30)`,
           }}
         >
           chute
@@ -312,30 +410,6 @@ const Hook = () => {
     </AbsoluteFill>
   );
 };
-
-const LabelChip = ({children, orange = false}) => (
-  <div
-    style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      padding: '14px 18px',
-      borderRadius: 18,
-      border: orange
-        ? '1px solid rgba(255,155,0,0.30)'
-        : '1px solid rgba(255,255,255,0.12)',
-      background: orange
-        ? 'linear-gradient(180deg, rgba(255,145,0,0.18), rgba(255,145,0,0.10))'
-        : 'linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))',
-      color: orange ? '#ffd485' : 'rgba(255,255,255,0.88)',
-      fontSize: 18,
-      fontWeight: 850,
-      letterSpacing: 1.3,
-      textTransform: 'uppercase',
-    }}
-  >
-    {children}
-  </div>
-);
 
 const DiscountBadge = ({discount, frame, fps}) => {
   const pop = spring({
@@ -352,15 +426,15 @@ const DiscountBadge = ({discount, frame, fps}) => {
     <div
       style={{
         position: 'absolute',
-        top: 34,
-        right: 34,
-        minWidth: 164,
+        top: 28,
+        right: 28,
+        minWidth: 166,
         padding: '18px 22px',
         borderRadius: 28,
         textAlign: 'center',
         color: '#1e1000',
         background:
-          'linear-gradient(145deg, #ffd86d 0%, #ffa013 48%, #ff6d00 100%)',
+          'linear-gradient(145deg, #ffd96f 0%, #ff9d16 48%, #ff6c00 100%)',
         boxShadow:
           '0 18px 42px rgba(255,118,0,0.30), inset 0 1px 0 rgba(255,255,255,0.55)',
         transform: `scale(${0.74 + pop * 0.26}) rotate(3deg)`,
@@ -444,30 +518,30 @@ const Deal = ({title, currentPrice, originalPrice, discount}) => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          transform: `translateY(${30 - entrance * 30}px)`,
+          transform: `translateY(${24 - entrance * 24}px)`,
           opacity: entrance,
         }}
       >
-        <BrandTitle compact />
-        <LabelChip orange>Amazon Deal</LabelChip>
+        <BrandHeader compact />
+        <InfoPill orange>Amazon Deal</InfoPill>
       </div>
 
       <div
         style={{
           display: 'flex',
           gap: 34,
-          marginTop: 34,
-          height: 920,
+          marginTop: 32,
+          height: 924,
         }}
       >
         <div
           style={{
-            flex: 0.9,
+            flex: 0.88,
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            padding: '20px 0 8px',
-            transform: `translateX(${-42 + textIn * 42}px)`,
+            padding: '18px 0 8px',
+            transform: `translateX(${-36 + textIn * 36}px)`,
             opacity: textIn,
           }}
         >
@@ -475,13 +549,13 @@ const Deal = ({title, currentPrice, originalPrice, discount}) => {
             <div
               style={{
                 display: 'inline-flex',
-                alignItems: 'center',
-                gap: 10,
+                gap: 12,
+                flexWrap: 'wrap',
                 marginBottom: 22,
               }}
             >
-              <LabelChip>Bon plan</LabelChip>
-              <LabelChip orange>Offre vérifiée</LabelChip>
+              <InfoPill>Bon plan</InfoPill>
+              <InfoPill orange>Offre vérifiée</InfoPill>
             </div>
 
             <div
@@ -501,7 +575,7 @@ const Deal = ({title, currentPrice, originalPrice, discount}) => {
 
             <div
               style={{
-                marginTop: 32,
+                marginTop: 30,
                 display: 'flex',
                 alignItems: 'flex-end',
                 gap: 22,
@@ -549,12 +623,12 @@ const Deal = ({title, currentPrice, originalPrice, discount}) => {
                 <div
                   style={{
                     marginTop: 8,
-                    color: '#ff9b00',
-                    fontSize: 112,
+                    color: '#ff9a00',
+                    fontSize: 114,
                     lineHeight: 0.9,
                     fontWeight: 950,
-                    letterSpacing: -5.8,
-                    textShadow: '0 18px 38px rgba(255,126,0,0.18)',
+                    letterSpacing: -6,
+                    textShadow: '0 18px 38px rgba(255,126,0,0.20)',
                   }}
                 >
                   {clean(currentPrice)}
@@ -566,19 +640,19 @@ const Deal = ({title, currentPrice, originalPrice, discount}) => {
           <div
             style={{
               display: 'flex',
-              gap: 16,
+              gap: 14,
               flexWrap: 'wrap',
             }}
           >
-            <LabelChip>Prix repéré</LabelChip>
-            <LabelChip>Promo flash</LabelChip>
-            <LabelChip>Stock limité</LabelChip>
+            <InfoPill>Prix repéré</InfoPill>
+            <InfoPill>Promo flash</InfoPill>
+            <InfoPill>Stock limité</InfoPill>
           </div>
         </div>
 
         <div
           style={{
-            flex: 1.08,
+            flex: 1.12,
             position: 'relative',
             borderRadius: 44,
             overflow: 'hidden',
@@ -587,7 +661,7 @@ const Deal = ({title, currentPrice, originalPrice, discount}) => {
               'linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03))',
             boxShadow:
               '0 38px 95px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.10)',
-            transform: `translateX(${44 - productIn * 44}px) scale(${0.95 + productIn * 0.05})`,
+            transform: `translateX(${40 - productIn * 40}px) scale(${0.95 + productIn * 0.05})`,
             opacity: productIn,
           }}
         >
@@ -596,7 +670,7 @@ const Deal = ({title, currentPrice, originalPrice, discount}) => {
               position: 'absolute',
               inset: 0,
               background:
-                'radial-gradient(circle at 50% 42%, rgba(255,255,255,0.16), rgba(255,255,255,0.05) 40%, transparent 75%)',
+                'radial-gradient(circle at 50% 42%, rgba(255,255,255,0.15), rgba(255,255,255,0.05) 40%, transparent 75%)',
             }}
           />
           <div
@@ -629,7 +703,7 @@ const Deal = ({title, currentPrice, originalPrice, discount}) => {
           <div
             style={{
               position: 'absolute',
-              inset: 26,
+              inset: 24,
               borderRadius: 36,
               overflow: 'hidden',
               background:
@@ -669,7 +743,7 @@ const Deal = ({title, currentPrice, originalPrice, discount}) => {
   );
 };
 
-const TelegramIcon = ({size = 120}) => (
+const TelegramIcon = ({size = 148}) => (
   <div
     style={{
       width: size,
@@ -736,32 +810,32 @@ const CTA = () => {
     >
       <div
         style={{
-          transform: `translateY(${24 - appear * 24}px)`,
+          transform: `translateY(${20 - appear * 20}px)`,
           opacity: appear,
         }}
       >
-        <BrandTitle />
+        <BrandHeader />
       </div>
 
       <div
         style={{
-          marginTop: 40,
-          transform: `translateY(${28 - iconIn * 28}px) scale(${0.75 + iconIn * 0.25})`,
+          marginTop: 34,
+          transform: `translateY(${26 - iconIn * 26}px) scale(${0.75 + iconIn * 0.25})`,
           opacity: iconIn,
         }}
       >
-        <TelegramIcon size={154} />
+        <TelegramIcon />
       </div>
 
       <div
         style={{
-          marginTop: 38,
+          marginTop: 34,
           fontSize: 76,
           lineHeight: 0.98,
           fontWeight: 950,
           letterSpacing: -3.2,
           color: '#ffffff',
-          transform: `translateY(${28 - appear * 28}px)`,
+          transform: `translateY(${22 - appear * 22}px)`,
           opacity: appear,
         }}
       >
@@ -776,7 +850,7 @@ const CTA = () => {
           fontWeight: 900,
           letterSpacing: -2,
           color: '#ff9b00',
-          transform: `translateY(${28 - appear * 28}px)`,
+          transform: `translateY(${22 - appear * 22}px)`,
           opacity: appear,
         }}
       >
@@ -785,7 +859,7 @@ const CTA = () => {
 
       <div
         style={{
-          marginTop: 32,
+          marginTop: 28,
           display: 'inline-flex',
           alignItems: 'center',
           gap: 14,
@@ -799,7 +873,7 @@ const CTA = () => {
           fontWeight: 860,
           letterSpacing: 1.8,
           textTransform: 'uppercase',
-          transform: `translateY(${28 - appear * 28}px)`,
+          transform: `translateY(${22 - appear * 22}px)`,
           opacity: appear,
         }}
       >
@@ -818,7 +892,7 @@ const CTA = () => {
 
       <div
         style={{
-          marginTop: 30,
+          marginTop: 26,
           padding: '15px 24px',
           borderRadius: 999,
           color: 'rgba(255,255,255,0.80)',
@@ -843,6 +917,12 @@ const DealVideo = (props) => {
           'Inter, Manrope, Montserrat, Arial, Helvetica, sans-serif',
       }}
     >
+      <Audio
+        src={staticFile('music.mp3')}
+        startFrom={MUSIC_START_FRAME}
+        volume={musicVolume}
+      />
+
       <BrandBackground />
 
       <Sequence from={HOOK_FROM} durationInFrames={HOOK_FRAMES}>
