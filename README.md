@@ -1,19 +1,14 @@
-# AlerteBonPlan — Générateur social V28
+ALERTEBONPLAN V33 AUDIO
 
-Cette version génère toujours une vidéo verticale 1080×1920 :
+Remplace dans ton dépôt :
+- src/DealVideo.jsx
+- src/timings.js
 
-- **deal vérifié** : prix actuel, ancien prix et remise ;
-- **deal prix seul** : prix actuel uniquement, sans inventer de remise.
+Ajoute :
+- public/music.mp3
 
-Le rendu a été repensé pour être plus proche d'un contenu TikTok natif : vidéo courte, accroche immédiate, produit en grand, aucun QR code, aucun lien incrusté et appel à l'action discret.
+La musique commence à 12,8 secondes dans le morceau original.
+Le volume monte au début, devient plus fort sur la scène produit,
+puis diminue et se termine en fondu sur la scène Telegram.
 
-## Secrets GitHub requis
-
-- `TELEGRAM_BOT_TOKEN`
-- `TIKTOK_CHANNEL_ID`
-- `FACEBOOK_PAGE_ACCESS_TOKEN` facultatif
-- `FACEBOOK_GRAPH_VERSION` facultatif
-
-## Test manuel
-
-Dans **Actions > Generate Social Video V28 > Run workflow**, renseigner au minimum : titre, prix actuel et lien affilié.
+Aucun changement n'est nécessaire dans Apps Script ou dans le workflow GitHub.
