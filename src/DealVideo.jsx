@@ -36,13 +36,6 @@ const fadeWindow = (frame, duration, fade = 10) =>
   );
 
 
-/*
- * V33 AUDIO
- * Extrait choisi automatiquement pour obtenir un impact musical
- * au passage du hook vers la scène produit.
- */
-const MUSIC_START_FRAME = 384; // 12,8 secondes dans le morceau source.
-
 const musicVolume = (frame) => {
   if (frame < 8) {
     return interpolate(frame, [0, 8], [0, 0.34], clamp);
@@ -918,8 +911,7 @@ const DealVideo = (props) => {
       }}
     >
       <Audio
-        src={staticFile('music.mp3')}
-        startFrom={MUSIC_START_FRAME}
+        src={staticFile('music.wav')}
         volume={musicVolume}
       />
 
